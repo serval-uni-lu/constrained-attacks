@@ -82,7 +82,7 @@ class Constraints(abc.ABC, metaclass=abc.ABCMeta):
                 (x[:, immutable_mask] == x_adv[:, immutable_mask]), axis=1
             )
         else:
-            mutable_ok = np.ones(shape=x.shape[:-1], dtype=np.bool)
+            mutable_ok = np.ones(shape=x_adv.shape[:-1], dtype=np.bool)
         return mutable_ok
 
     def check_constraints(self, x, x_adv) -> np.ndarray:

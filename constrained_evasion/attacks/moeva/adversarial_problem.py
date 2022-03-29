@@ -2,6 +2,7 @@ import numpy as np
 from pymoo.core.problem import Problem
 
 from constrained_evasion.constraints.constraints import Constraints
+from constrained_evasion.utils import compute_distance
 from constrained_evasion.utils.classifier import Classifier
 
 NB_OBJECTIVES = 3
@@ -60,15 +61,7 @@ class AdversarialProblem(Problem):
         return y_pred
 
     def _obj_distance(self, x_1: np.ndarray, x_2: np.ndarray) -> np.ndarray:
-
-        if self.norm in ["inf", np.inf]:
-            distance = np.linalg.norm(x_1 - x_2, ord=np.inf, axis=1)
-        elif self.norm in ["2", 2]:
-            distance = np.linalg.norm(x_1 - x_2, ord=2, axis=1)
-        else:
-            raise NotImplementedError
-
-        return distance
+        return compute_distance(x_1, x_2, self.norm)
 
     def _calculate_constraints(self, x):
         G = self.constraints.evaluate(x)
