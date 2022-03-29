@@ -21,6 +21,7 @@ from tqdm import tqdm
 from constrained_evasion.attacks.moeva.history_callback import HistoryCallback
 from constrained_evasion.attacks.moeva.operators import InitialStateSampling
 from constrained_evasion.constraints.constraints import Constraints
+from constrained_evasion.utils import cut_in_batch
 
 from .adversarial_problem import AdversarialProblem
 
@@ -30,18 +31,6 @@ def tf_lof_off():
     warnings.simplefilter(action="ignore", category=FutureWarning)
     warnings.simplefilter(action="ignore", category=RuntimeWarning)
     warnings.simplefilter(action="ignore", category=UserWarning)
-
-
-def cut_in_batch(arr, n_desired_batch=1, batch_size=None):
-
-    if batch_size is None:
-        n_batch = min(n_desired_batch, len(arr))
-    else:
-        n_batch = np.ceil(len(arr / batch_size))
-
-    batches_i = np.array_split(np.arange(arr.shape[0]), n_batch)
-
-    return [arr[batch_i] for batch_i in batches_i]
 
 
 class Moeva2:
