@@ -97,8 +97,9 @@ class ObjectiveCalculator:
 
     def _get_one_successful(
         self,
-        x_initial,
-        x_generated,
+        x_clean,
+        y_clean,
+        x_adv,
         preferred_metrics="misclassification",
         order="asc",
         max_inputs=-1,
@@ -107,7 +108,7 @@ class ObjectiveCalculator:
         metrics_to_index = {"misclassification": 1, "distance": 2}
 
         # Calculate objective and respected values
-        objective_values = self._calculate_objective(x_initial, x_generated)
+        objective_values = self._calculate_objective(x_clean, y_clean, x_adv)
         objective_respected = self._objective_respected(objective_values)
 
         # Sort by the preferred_metrics parameter
@@ -128,14 +129,15 @@ class ObjectiveCalculator:
         if max_inputs > -1:
             sorted_index_success = sorted_index_success[:1]
 
-        success_full_attacks = x_generated[sorted_index_success]
+        success_full_attacks = x_adv[sorted_index_success]
 
         return success_full_attacks
 
     def get_successful_attacks(
         self,
-        x_initials,
-        x_generated,
+        x_clean,
+        y_clean,
+        x_adv,
         preferred_metrics="misclassification",
         order="asc",
         max_inputs=-1,
@@ -145,13 +147,12 @@ class ObjectiveCalculator:
         successful_attacks = []
 
         if self.n_jobs == 1:
-            for i, x_initial in tqdm(
-                enumerate(x_initials), total=len(x_initials)
-            ):
+            for i in tqdm(range(len(x_clean)), total=len(x_clean)):
                 successful_attacks.append(
                     self._get_one_successful(
-                        x_initial,
-                        x_generated[i],
+                        x_clean[i],
+                        y_clean[i],
+                        x_adv[i],
                         preferred_metrics,
                         order,
                         max_inputs,
@@ -162,15 +163,14 @@ class ObjectiveCalculator:
         else:
             processed_results = Parallel(n_jobs=self.n_jobs, prefer="threads")(
                 delayed(self._get_one_successful)(
-                    x_initial,
-                    x_generated[i],
+                    x_clean[i],
+                    y_clean[i],
+                    x_adv[i],
                     preferred_metrics,
                     order,
                     max_inputs,
                 )
-                for i, x_initial in tqdm(
-                    enumerate(x_initials), total=len(x_initials)
-                )
+                for i in tqdm(range(len(x_clean)), total=len(x_clean))
             )
             for processed_result in processed_results:
                 successful_attacks.append(processed_result)
