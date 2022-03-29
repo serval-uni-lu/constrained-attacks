@@ -1,9 +1,9 @@
 import numpy as np
 from pymoo.core.problem import Problem
 
+from constrained_evasion.classifier.classifier import Classifier
 from constrained_evasion.constraints.constraints import Constraints
 from constrained_evasion.utils import compute_distance
-from constrained_evasion.utils.classifier import Classifier
 
 NB_OBJECTIVES = 3
 

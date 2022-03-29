@@ -1,6 +1,13 @@
+import abc
 import warnings
 
 import numpy as np
+
+
+class AbstractClassifier(abc.ABC, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def predict_proba(self, x):
+        raise NotImplementedError
 
 
 class Classifier:
