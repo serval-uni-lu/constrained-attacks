@@ -17,7 +17,7 @@ def test_run():
     y_clean = np.load("tests/resources/url/baseline_y_test_candidates.npy")[
         :10
     ]
-    model = joblib.load("./tests/resources/url/baseline.model")
+    model = joblib.load("./tests/resources/url/baseline_rf.model")
     preprocessing_pipeline = joblib.load(
         "./tests/resources/url/baseline_scaler.joblib"
     )
@@ -46,7 +46,7 @@ def test_objective_calculation():
     y_clean = np.load("tests/resources/url/baseline_y_test_candidates.npy")[
         :10
     ]
-    model = joblib.load("./tests/resources/url/baseline.model")
+    model = joblib.load("./tests/resources/url/baseline_rf.model")
     preprocessing_pipeline = joblib.load(
         "./tests/resources/url/baseline_scaler.joblib"
     )
