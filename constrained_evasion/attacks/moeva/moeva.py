@@ -23,7 +23,7 @@ from constrained_evasion.attacks.moeva.operators import InitialStateSampling
 from constrained_evasion.constraints.constraints import Constraints
 from constrained_evasion.utils import cut_in_batch
 
-from .adversarial_problem import AdversarialProblem
+from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 
 
 def tf_lof_off():
@@ -65,6 +65,9 @@ class Moeva2:
         # Defaults
         self.alg_class = RNSGA3
         self.problem_class = AdversarialProblem
+
+        # Computed
+        self.ref_points = None
 
     def _check_inputs(self, x: np.ndarray, y) -> None:
         expected_input_length = self.constraints.get_mutable_mask().shape[0]
@@ -117,9 +120,7 @@ class Moeva2:
             },
         )
 
-        ref_points = get_reference_directions(
-            "energy", n_obj, self.n_pop, seed=1
-        )
+        ref_points = self.ref_points.copy()
 
         algorithm = self.alg_class(
             pop_per_ref_point=1,
@@ -179,10 +180,10 @@ class Moeva2:
     def _batch_generate(self, x, y, batch_i):
         tf_lof_off()
 
-        if self.verbose > 0:
+        if self.verbose >= 2:
             print(f"Starting batch #{batch_i} with {len(x)} inputs.")
         iterable = enumerate(x)
-        if (self.verbose > 0) and (batch_i == 0):
+        if (self.verbose >= 2) and (batch_i == 0):
             iterable = tqdm(iterable, total=len(x))
 
         classifier = self.classifier_class
@@ -197,6 +198,10 @@ class Moeva2:
     # Loop over inputs to generate adversarials using the _one_generate
     # function above
     def generate(self, x: np.ndarray, y, batch_size=None):
+        if self.ref_points is None:
+            self.ref_points = get_reference_directions(
+                "energy", NB_OBJECTIVES, self.n_pop, seed=1
+            )
 
         batches_i = cut_in_batch(
             np.arange(x.shape[0]),
@@ -210,6 +215,8 @@ class Moeva2:
         self._check_inputs(x, y)
 
         iterable = enumerate(batches_i)
+        if self.verbose >= 1:
+            iterable = tqdm(iterable, total=len(batches_i))
 
         # Sequential Run
         if self.n_jobs == 1:
