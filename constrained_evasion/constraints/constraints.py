@@ -69,10 +69,13 @@ class Constraints(abc.ABC, metaclass=abc.ABCMeta):
 
     def _calc_type_constraints(self, x_adv):
         int_type_mask = self.get_feature_type() != "real"
-        type_ok = np.min(
-            (x_adv[:, int_type_mask] == np.round(x_adv[:, int_type_mask])),
-            axis=1,
-        )
+        if int_type_mask.sum() > 0:
+            type_ok = np.min(
+                (x_adv[:, int_type_mask] == np.round(x_adv[:, int_type_mask])),
+                axis=1,
+            )
+        else:
+            type_ok = np.ones(shape=x_adv.shape[:-1], dtype=np.bool)
         return type_ok
 
     def _calc_mutable_constraints(self, x, x_adv):
