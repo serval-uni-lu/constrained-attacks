@@ -26,6 +26,14 @@ class ObjectiveCalculator:
         self.constraints = constraints
         self.norm = norm
         self.fun_distance_preprocess = fun_distance_preprocess
+
+        if isinstance(thresholds["misclassification"], float):
+            thresholds["misclassification"] = np.array(
+                [
+                    1 - thresholds["misclassification"],
+                    thresholds["misclassification"],
+                ]
+            )
         self.thresholds = thresholds
         self.n_jobs = n_jobs
 
