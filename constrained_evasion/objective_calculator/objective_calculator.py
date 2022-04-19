@@ -48,10 +48,11 @@ class ObjectiveCalculator:
 
         return np.column_stack([constraint_violation, f1, f2])
 
-    def _objective_respected(self, objective_values):
+    def _objective_respected(self, objective_values, y_clean):
         constraints_respected = objective_values[:, 0] <= 0
         misclassified = (
-            objective_values[:, 1] < self.thresholds["misclassification"]
+            objective_values[:, 1]
+            < self.thresholds["misclassification"][y_clean]
         )
         distance = objective_values[:, 2] <= self.thresholds["distance"]
         return np.column_stack(
@@ -68,7 +69,7 @@ class ObjectiveCalculator:
 
     def _objective_array(self, x_clean, y_clean, x_adv):
         objective_values = self._calculate_objective(x_clean, y_clean, x_adv)
-        return self._objective_respected(objective_values)
+        return self._objective_respected(objective_values, y_clean)
 
     def success_rate(self, x_clean, y_clean, x_adv):
         return self._objective_array(x_clean, y_clean, x_adv).mean(axis=0)
@@ -109,7 +110,9 @@ class ObjectiveCalculator:
 
         # Calculate objective and respected values
         objective_values = self._calculate_objective(x_clean, y_clean, x_adv)
-        objective_respected = self._objective_respected(objective_values)
+        objective_respected = self._objective_respected(
+            objective_values, y_clean
+        )
 
         # Sort by the preferred_metrics parameter
         sorted_index = np.argsort(
