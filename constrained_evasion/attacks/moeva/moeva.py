@@ -43,7 +43,7 @@ class Moeva2:
         n_gen=100,
         n_pop=203,
         n_offsprings=100,
-        save_history="none",
+        save_history=None,
         seed=None,
         n_jobs=-1,
         verbose=1,
@@ -173,9 +173,12 @@ class Moeva2:
         )
         x_adv = np.repeat(x.reshape(1, -1), x_adv_mutable.shape[0], axis=0)
         x_adv[:, self.constraints.get_mutable_mask()] = x_adv_mutable
-        history = np.array(result.algorithm.callback.data["F"])
 
-        return x_adv, history
+        if self.save_history is not None:
+            history = np.array(result.algorithm.callback.data["F"])
+            return x_adv, history
+        else:
+            return x_adv
 
     def _batch_generate(self, x, y, batch_i):
         tf_lof_off()
@@ -189,9 +192,11 @@ class Moeva2:
         classifier = self.classifier_class
 
         out = [self._one_generate(x[i], y[i], classifier) for i, _ in iterable]
-
-        out = zip(*out)
-        out = [np.array(out_0) for out_0 in out]
+        if self.save_history is not None:
+            out = zip(*out)
+            out = [np.array(out_0) for out_0 in out]
+        else:
+            out = np.array(out)
 
         return out
 
@@ -236,13 +241,12 @@ class Moeva2:
                 for i, batch_indexes in iterable
             )
 
-        out = zip(*out)
-        out = [np.concatenate(out_0) for out_0 in out]
+        if self.save_history is not None:
+            out = zip(*out)
+            out = [np.concatenate(out_0) for out_0 in out]
 
-        x_adv = out[0]
-        histories = out[1]
-
-        if self.save_history:
+            x_adv = out[0]
+            histories = out[1]
             return x_adv, histories
         else:
-            return x_adv
+            return np.concatenate(out)
