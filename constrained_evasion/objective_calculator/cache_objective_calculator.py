@@ -21,6 +21,33 @@ class ObjectiveCalculator:
         fun_distance_preprocess=lambda x: x,
         n_jobs=1,
     ):
+        """Calculate the objectives satisfaction according to a model
+        and a set of constraints.
+        This version is using cache, therefore you should pass the
+        parameters recompute=True whenever possible if your input
+        change.
+
+
+        Parameters
+        ----------
+        classifier : _type_
+            The tager classifier.
+        constraints : Constraints
+            The set of constraints.
+        thresholds : dict
+            Dictionary containing a float value for the
+            "misclassfication" and  "distance" key.
+        norm : _type_, optional
+            Norm to compute the distance, by default np.inf.
+        fun_distance_preprocess : _type_, optional
+            function used to preprocess input before the distance metric
+            calculation, typically the n-1 first steps of an n step
+            classification Pipeline, by default lambdax:x.
+        n_jobs : int, optional
+            Number of parallel jobs for returning adversarial examples,
+            we recommand using the classifier parallel capabilities
+            instead, by default 1.
+        """
         self.classifier = classifier
         self.constraints = constraints
         self.norm = norm
