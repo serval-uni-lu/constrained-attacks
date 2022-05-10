@@ -74,3 +74,6 @@ def test_objective_calculation():
     assert success_rate[4] == 1.0
     assert success_rate[5] == success_rate[1]
     assert success_rate[6] == success_rate[1]
+
+    # Computed manually
+    assert success_rate[1] == 0.1
