@@ -1,15 +1,31 @@
 import joblib
 import numpy as np
+import pytest
 from sklearn.pipeline import Pipeline
+from tensorflow.keras.models import load_model
 
 from constrained_evasion.attacks import Moeva2
+from constrained_evasion.classifier.tensorflow_classifier import (
+    TensorflowClassifier,
+)
 from constrained_evasion.objective_calculator.objective_calculator import (
     ObjectiveCalculator,
 )
 from tests.attacks.moeva.url_constraints import UrlConstraints
 
 
-def test_run():
+@pytest.mark.parametrize(
+    "model",
+    [
+        (joblib.load("./tests/resources/url/baseline_rf.model")),
+        (
+            TensorflowClassifier(
+                load_model("./tests/resources/url/baseline_nn.model")
+            )
+        ),
+    ],
+)
+def test_run(model):
     constraints = UrlConstraints()
     x_clean = np.load("tests/resources/url/baseline_X_test_candidates.npy")[
         :10
@@ -32,7 +48,7 @@ def test_run():
         preprocessing_pipeline.transform,
         save_history="full",
         seed=42,
-        n_jobs=10,
+        n_jobs=1,
     )
     out = attack.generate(x_clean, y_clean)
     assert len(out) == 2
