@@ -100,3 +100,23 @@ class Constraints(abc.ABC, metaclass=abc.ABCMeta):
         # print(np.sum(constraints, axis=1))
         constraints = np.min(constraints, axis=0)
         return constraints
+
+    def fix_type_constraints(self, x_clean, x_adv):
+        int_type_mask = self.get_feature_type() != "real"
+        if int_type_mask.sum() > 0:
+            x_adv = x_adv.copy()
+            x_adv_int = x_adv[..., int_type_mask]
+
+            x_plus_minus = (
+                (
+                    x_adv_int
+                    - np.repeat(
+                        x_clean[:, np.newaxis, :], x_adv_int.shape[1], axis=1
+                    )
+                )[..., int_type_mask]
+            ) >= 0
+
+            x_adv_int[x_plus_minus] = np.floor(x_adv_int[x_plus_minus])
+            x_adv_int[~x_plus_minus] = np.ceil(x_adv_int[~x_plus_minus])
+            x_adv[..., int_type_mask] = x_adv_int
+        return x_adv
