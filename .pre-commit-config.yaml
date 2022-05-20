@@ -13,8 +13,13 @@ repos:
     rev: 4.0.1
     hooks:
     -   id: flake8
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.10.1
+    hooks:
+    -   id: isort
+        args: ["--profile", "black", "--line-length=79"]
 -   repo: https://github.com/psf/black
-    rev: 22.1.0
+    rev: 22.3.0
     hooks:
       - id: black
 #-   repo: https://github.com/pre-commit/mirrors-mypy
@@ -22,7 +27,3 @@ repos:
 #    hooks:
 #        - id: mypy
         #   additional_dependencies: [pydantic]  # add if use pydantic
--   repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
-    hooks:
-    -   id: isort
