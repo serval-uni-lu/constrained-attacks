@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "constrained-evasion"
+name = "constrained-attacks"
 version = "0.1.0"
 description = ""
 authors = ["Thibault Simonetto <thibault.simonetto.001@student.uni.lu>"]

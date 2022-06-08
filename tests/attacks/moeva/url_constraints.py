@@ -1,13 +1,13 @@
 import numpy as np
 import tensorflow as tf
 
-from constrained_evasion.constraints.constraints_operator import apply_or
-from constrained_evasion.constraints.constraints_operator_tf import (
+from constrained_attacks.constraints.constraints_operator import apply_or
+from constrained_attacks.constraints.constraints_operator_tf import (
     op_and,
     op_inf_eq,
     op_or,
 )
-from constrained_evasion.constraints.file_constraints import FileConstraints
+from constrained_attacks.constraints.file_constraints import FileConstraints
 
 
 class UrlConstraints(FileConstraints):

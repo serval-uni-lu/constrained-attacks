@@ -1,4 +1,4 @@
-from constrained_evasion import __version__
+from constrained_attacks import __version__
 
 
 def test_version():

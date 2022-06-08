@@ -3,11 +3,11 @@ import numpy as np
 from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import load_model
 
-from constrained_evasion.attacks.cpgd.cpgd import CPGD
-from constrained_evasion.classifier.tensorflow_classifier import (
+from constrained_attacks.attacks.cpgd.cpgd import CPGD
+from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
 )
-from constrained_evasion.objective_calculator import ObjectiveCalculator
+from constrained_attacks.objective_calculator import ObjectiveCalculator
 from tests.attacks.moeva.url_constraints import UrlConstraints
 
 

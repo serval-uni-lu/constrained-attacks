@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 from sklearn.pipeline import Pipeline
 
-from constrained_evasion.objective_calculator import ObjectiveCalculator
+from constrained_attacks.objective_calculator import ObjectiveCalculator
 from tests.attacks.moeva.url_constraints import UrlConstraints
 
 

@@ -4,11 +4,11 @@ import pytest
 from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import load_model
 
-from constrained_evasion.attacks import Moeva2
-from constrained_evasion.classifier.tensorflow_classifier import (
+from constrained_attacks.attacks import Moeva2
+from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
 )
-from constrained_evasion.objective_calculator.objective_calculator import (
+from constrained_attacks.objective_calculator.objective_calculator import (
     ObjectiveCalculator,
 )
 from tests.attacks.moeva.url_constraints import UrlConstraints

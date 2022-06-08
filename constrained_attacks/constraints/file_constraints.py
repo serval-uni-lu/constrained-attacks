@@ -5,7 +5,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from constrained_evasion.constraints.constraints import Constraints
+from constrained_attacks.constraints.constraints import Constraints
 
 
 class FileConstraints(Constraints, metaclass=abc.ABCMeta):

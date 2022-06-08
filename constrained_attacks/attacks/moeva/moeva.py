@@ -18,10 +18,10 @@ from pymoo.operators.mixed_variable_operator import (
 from pymoo.optimize import minimize
 from tqdm import tqdm
 
-from constrained_evasion.attacks.moeva.history_callback import HistoryCallback
-from constrained_evasion.attacks.moeva.operators import InitialStateSampling
-from constrained_evasion.constraints.constraints import Constraints
-from constrained_evasion.utils import cut_in_batch
+from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
+from constrained_attacks.attacks.moeva.operators import InitialStateSampling
+from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.utils import cut_in_batch
 
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 

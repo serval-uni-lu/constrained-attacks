@@ -5,8 +5,8 @@ import numpy as np
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from constrained_evasion.constraints.constraints import Constraints
-from constrained_evasion.utils import compute_distance
+from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.utils import compute_distance
 
 numpy.set_printoptions(threshold=sys.maxsize)
 
