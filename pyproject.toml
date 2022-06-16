@@ -19,7 +19,7 @@ tensorflow = ["tensorflow", "adversarial-robustness-toolbox"]
 
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+pytest = "7.1.2"
 pytest-cov = "^3.0.0"
 pre-commit = "^2.17.0"
 flake8 = "^4.0.1"
