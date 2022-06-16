@@ -56,3 +56,7 @@ exclude = '''
                      # the root of the project
 )
 '''
+
+[tool.isort]
+profile = "black"
+line_length = 79
