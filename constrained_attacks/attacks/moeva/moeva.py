@@ -90,7 +90,7 @@ class Moeva2:
                 f"{x.__name__} ({x.shape}) must have 2 dimensions."
             )
 
-    def _create_algorithm(self, n_obj) -> GeneticAlgorithm:
+    def _create_algorithm(self) -> GeneticAlgorithm:
 
         type_mask = self.constraints.get_feature_type()[
             self.constraints.get_mutable_mask()
@@ -150,7 +150,7 @@ class Moeva2:
             norm=self.norm,
         )
 
-        algorithm = self._create_algorithm(n_obj=problem.n_obj)
+        algorithm = self._create_algorithm()
 
         if self.save_history is not None:
             callback = HistoryCallback()
