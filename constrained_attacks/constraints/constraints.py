@@ -106,14 +106,12 @@ class Constraints(abc.ABC, metaclass=abc.ABCMeta):
         if int_type_mask.sum() > 0:
             x_adv = x_adv.copy()
             x_adv_int = x_adv[..., int_type_mask]
-
+            x_clean_int = x_clean[..., int_type_mask]
             x_plus_minus = (
-                (
-                    x_adv_int
-                    - np.repeat(
-                        x_clean[:, np.newaxis, :], x_adv_int.shape[1], axis=1
-                    )
-                )[..., int_type_mask]
+                x_adv_int
+                - np.repeat(
+                    x_clean_int[:, np.newaxis, :], x_adv_int.shape[1], axis=1
+                )
             ) >= 0
 
             x_adv_int[x_plus_minus] = np.floor(x_adv_int[x_plus_minus])
