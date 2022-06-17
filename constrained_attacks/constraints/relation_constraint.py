@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import typing
 from typing import List, Union
 
 
-def _check_min_operands_length(expected: int, operands: List[any]):
+def _check_min_operands_length(
+    expected: int, operands: List[typing.Any]
+) -> None:
     if len(operands) < expected:
         raise ValueError(
             f"Operands length={len(operands)}, expected: >= {expected}."
@@ -11,32 +14,35 @@ def _check_min_operands_length(expected: int, operands: List[any]):
 
 
 class ConstraintsNode:
-    def accept(self, visitor):
+    def accept(self, visitor: typing.Any) -> typing.Any:
         return visitor.visit(self)
 
 
 # ------------ Values
 class Value(ConstraintsNode):
-    def __add__(self, other) -> MathOperation:
+    def __add__(self, other: Value) -> MathOperation:
         return MathOperation("+", self, other)
 
-    def __sub__(self, other) -> MathOperation:
+    def __sub__(self, other: Value) -> MathOperation:
         return MathOperation("-", self, other)
 
-    def __mul__(self, other) -> MathOperation:
+    def __mul__(self, other: Value) -> MathOperation:
         return MathOperation("*", self, other)
 
-    def __truediv__(self, other) -> MathOperation:
+    def __truediv__(self, other: Value) -> MathOperation:
         return MathOperation("/", self, other)
 
-    def __lt__(self, other) -> BaseRelationConstraint:
+    def __lt__(self, other: Value) -> BaseRelationConstraint:
         return LessConstraint(self, other)
 
-    def __le__(self, other) -> BaseRelationConstraint:
+    def __le__(self, other: Value) -> BaseRelationConstraint:
         return LessEqualConstraint(self, other)
 
-    def __eq__(self, other) -> BaseRelationConstraint:
-        return EqualConstraint(self, other)
+    def __eq__(self, other: object) -> typing.Any:
+        if isinstance(other, Value):
+            return EqualConstraint(self, other)
+        else:
+            raise ValueError
 
 
 class Constant(Value):
@@ -63,10 +69,10 @@ class MathOperation(Value):
 
 
 class BaseRelationConstraint(ConstraintsNode):
-    def __or__(self, other) -> BaseRelationConstraint:
+    def __or__(self, other: BaseRelationConstraint) -> BaseRelationConstraint:
         return OrConstraint([self, other])
 
-    def __and__(self, other) -> BaseRelationConstraint:
+    def __and__(self, other: BaseRelationConstraint) -> BaseRelationConstraint:
         return AndConstraint([self, other])
 
 
