@@ -21,6 +21,25 @@ from constrained_attacks.constraints.relation_constraint import (
 EPS: npt.NDArray[Any] = np.array(0.000001)
 
 
+def get_feature_index(
+    feature_names: npt.ArrayLike[str], feature_id: typing.Union[int, str]
+) -> int:
+    if isinstance(feature_id, str):
+        if feature_names is None:
+            raise ValueError(
+                f"Feature names not provided. "
+                f"Impossible to convert {feature_id} to index"
+            )
+        else:
+            feature_names = np.array(feature_names)
+            index = np.where(feature_names == feature_id)[0]
+            if len(index) > 0:
+                return index[0]
+            raise IndexError(f"{feature_id} is not in {feature_names}")
+    else:
+        return feature_id
+
+
 class ConstraintsVisitor:
     """Abstract Visitor Class"""
 
@@ -33,20 +52,24 @@ class ConstraintsVisitor:
         pass
 
 
-numpy_str_operator_to_result = {
-    "+": lambda left, right: left + right,
-    "-": lambda left, right: left - right,
-    "*": lambda left, right: left * right,
-    "/": lambda left, right: left / right,
-}
-
-
 class NumpyConstraintsVisitor(ConstraintsVisitor):
+
+    str_operator_to_result = {
+        "+": lambda left, right: left + right,
+        "-": lambda left, right: left - right,
+        "*": lambda left, right: left * right,
+        "/": lambda left, right: left / right,
+    }
+
     def __init__(
-        self, constraint: BaseRelationConstraint, x: npt.NDArray[Any]
+        self,
+        constraint: BaseRelationConstraint,
+        x: npt.NDArray[Any],
+        feature_names: npt.ArrayLike[str] = None,
     ) -> None:
         self.constraint = constraint
         self.x = x
+        self.feature_names = feature_names
 
     @staticmethod
     def get_zeros_np(
@@ -62,14 +85,17 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
             return np.array(constraint_node.constant)
 
         elif isinstance(constraint_node, Feature):
-            return self.x[:, constraint_node.feature_id]
+            feature_index = get_feature_index(
+                self.feature_names, constraint_node.feature_id
+            )
+            return self.x[:, feature_index]
 
         elif isinstance(constraint_node, MathOperation):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
             operator = constraint_node.operator
-            if operator in numpy_str_operator_to_result:
-                return numpy_str_operator_to_result[operator](
+            if operator in self.str_operator_to_result:
+                return self.str_operator_to_result[operator](
                     left_operand, right_operand
                 )
             else:
@@ -112,29 +138,41 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
 
 
 class NumpyConstraintsExecutor:
-    def __init__(self, constraint: BaseRelationConstraint):
+    def __init__(
+        self,
+        constraint: BaseRelationConstraint,
+        feature_names: npt.ArrayLike[str] = None,
+    ):
         self.constraint = constraint
+        self.feature_names = feature_names
 
     def execute(self, x: npt.NDArray[Any]) -> npt.NDArray[Any]:
-        visitor = NumpyConstraintsVisitor(self.constraint, x)
+        visitor = NumpyConstraintsVisitor(
+            self.constraint, x, self.feature_names
+        )
         return visitor.execute()
-
-
-tf_str_operator_to_result = {
-    "+": lambda left, right: left + right,
-    "-": lambda left, right: left - right,
-    "*": lambda left, right: left * right,
-    "/": lambda left, right: left / right,
-}
 
 
 class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
     import tensorflow as tf
 
-    def __init__(self, constraint: BaseRelationConstraint, x: tf.Tensor):
+    str_operator_to_result = {
+        "+": lambda left, right: left + right,
+        "-": lambda left, right: left - right,
+        "*": lambda left, right: left * right,
+        "/": lambda left, right: left / right,
+    }
+
+    def __init__(
+        self,
+        constraint: BaseRelationConstraint,
+        x: tf.Tensor,
+        feature_names: npt.ArrayLike[str] = None,
+    ):
         self.constraint = constraint
         self.x = x
+        self.feature_names = feature_names
 
     @staticmethod
     def get_zeros_tf(operands: typing.List[tf.Tensor]) -> tf.Tensor:
@@ -151,14 +189,17 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
             return tf.constant(constraint_node.constant, dtype=float)
 
         elif isinstance(constraint_node, Feature):
-            return self.x[:, constraint_node.feature_id]
+            feature_index = get_feature_index(
+                self.feature_names, constraint_node.feature_id
+            )
+            return self.x[:, feature_index]
 
         elif isinstance(constraint_node, MathOperation):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
             operator = constraint_node.operator
-            if operator in tf_str_operator_to_result:
-                return tf_str_operator_to_result[operator](
+            if operator in self.str_operator_to_result:
+                return self.str_operator_to_result[operator](
                     left_operand, right_operand
                 )
             else:
@@ -209,9 +250,16 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 class TensorFlowConstraintsExecutor:
     import tensorflow as tf
 
-    def __init__(self, constraint: BaseRelationConstraint):
+    def __init__(
+        self,
+        constraint: BaseRelationConstraint,
+        feature_names: npt.ArrayLike[str] = None,
+    ):
         self.constraint = constraint
+        self.feature_names = feature_names
 
     def execute(self, x: tf.Tensor) -> tf.Tensor:
-        visitor = TensorFlowConstraintsVisitor(self.constraint, x)
+        visitor = TensorFlowConstraintsVisitor(
+            self.constraint, x, self.feature_names
+        )
         return visitor.execute()
