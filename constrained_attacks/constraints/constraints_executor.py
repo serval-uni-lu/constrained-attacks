@@ -59,6 +59,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
         "-": lambda left, right: left - right,
         "*": lambda left, right: left * right,
         "/": lambda left, right: left / right,
+        "**": lambda left, right: left**right,
     }
 
     def __init__(
@@ -157,13 +158,6 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
     import tensorflow as tf
 
-    str_operator_to_result = {
-        "+": lambda left, right: left + right,
-        "-": lambda left, right: left - right,
-        "*": lambda left, right: left * right,
-        "/": lambda left, right: left / right,
-    }
-
     def __init__(
         self,
         constraint: BaseRelationConstraint,
@@ -180,6 +174,18 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
         i = np.argmax([op.ndim for op in operands])
         return tf.zeros(operands[i].shape, dtype=operands[i].dtype)
+
+    @staticmethod
+    def str_operator_to_result_f():
+        import tensorflow as tf
+
+        return {
+            "+": lambda left, right: left + right,
+            "-": lambda left, right: left - right,
+            "*": lambda left, right: left * right,
+            "/": lambda left, right: left / right,
+            "**": lambda left, right: tf.math.pow(left, right),
+        }
 
     def visit(self, constraint_node: ConstraintsNode) -> tf.Tensor:
         import tensorflow as tf
@@ -198,8 +204,8 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
             operator = constraint_node.operator
-            if operator in self.str_operator_to_result:
-                return self.str_operator_to_result[operator](
+            if operator in self.str_operator_to_result_f():
+                return self.str_operator_to_result_f()[operator](
                     left_operand, right_operand
                 )
             else:
