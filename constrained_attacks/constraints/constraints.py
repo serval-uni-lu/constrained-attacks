@@ -5,7 +5,10 @@ from typing import Any, List, Tuple
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from constraints.relation_constraint import BaseRelationConstraint
+
+from constrained_attacks.constraints.relation_constraint import (
+    BaseRelationConstraint,
+)
 
 
 @dataclass

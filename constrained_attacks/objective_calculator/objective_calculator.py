@@ -3,11 +3,13 @@ import sys
 import numpy
 import numpy as np
 import pandas as pd
-from constraints.constraints_checker import ConstraintChecker
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.constraints_checker import (
+    ConstraintChecker,
+)
 from constrained_attacks.utils import compute_distance
 
 numpy.set_printoptions(threshold=sys.maxsize)

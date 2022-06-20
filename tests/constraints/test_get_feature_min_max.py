@@ -1,5 +1,9 @@
 import numpy as np
-from constraints.constraints import Constraints, get_feature_min_max
+
+from constrained_attacks.constraints.constraints import (
+    Constraints,
+    get_feature_min_max,
+)
 
 
 def test_no_dynamic():
