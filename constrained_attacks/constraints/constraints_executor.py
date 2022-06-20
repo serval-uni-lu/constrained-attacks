@@ -16,6 +16,7 @@ from constrained_attacks.constraints.relation_constraint import (
     LessEqualConstraint,
     MathOperation,
     OrConstraint,
+    SafeDivision,
 )
 
 EPS: npt.NDArray[Any] = np.array(0.000001)
@@ -101,6 +102,17 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
                 )
             else:
                 raise NotImplementedError
+
+        elif isinstance(constraint_node, SafeDivision):
+            dividend = constraint_node.dividend.accept(self)
+            divisor = constraint_node.divisor.accept(self)
+            fill_value = constraint_node.fill_value.accept(self)
+            return np.divide(
+                dividend,
+                divisor,
+                out=np.full_like(dividend, fill_value),
+                where=divisor != 0,
+            )
 
         # ------------ Constraints
 

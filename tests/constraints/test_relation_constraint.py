@@ -14,6 +14,7 @@ from constrained_attacks.constraints.relation_constraint import (
     LessEqualConstraint,
     MathOperation,
     OrConstraint,
+    SafeDivision,
 )
 
 
@@ -45,6 +46,24 @@ class TestRelationConstraint:
         out = executor.execute(x)
         expected = np.array([0, 2, 5, 8])
         assert np.array_equal(out, expected)
+
+    def test_safe_division(self):
+        x = np.array(
+            [
+                [1, 1, 1],
+                [1, 2, 1 / 2],
+                [1, 0, -1],
+                [1, 4, 1 / 4],
+            ]
+        )
+        dividend = Feature(0)
+        divisor = Feature(1)
+        safe_value = Constant(-1.0)
+        result = Feature(2)
+        constraint = SafeDivision(dividend, divisor, safe_value) == result
+        executor = NumpyConstraintsExecutor(constraint)
+        out = executor.execute(x)
+        assert np.array_equal(out, np.zeros(4))
 
     # ------------ Constraints
 

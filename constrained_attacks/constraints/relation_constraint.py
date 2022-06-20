@@ -68,6 +68,13 @@ class MathOperation(Value):
         self.right_operand = right_operand
 
 
+class SafeDivision(Value):
+    def __init__(self, dividend: Value, divisor: Value, fill_value: Value):
+        self.dividend = dividend
+        self.divisor = divisor
+        self.fill_value = fill_value
+
+
 # ------------ Constraints
 
 
