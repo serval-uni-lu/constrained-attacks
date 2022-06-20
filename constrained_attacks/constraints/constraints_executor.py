@@ -22,7 +22,7 @@ EPS: npt.NDArray[Any] = np.array(0.000001)
 
 
 def get_feature_index(
-    feature_names: npt.ArrayLike[str], feature_id: typing.Union[int, str]
+    feature_names: npt.ArrayLike, feature_id: typing.Union[int, str]
 ) -> int:
     if isinstance(feature_id, str):
         if feature_names is None:
@@ -66,7 +66,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
         self,
         constraint: BaseRelationConstraint,
         x: npt.NDArray[Any],
-        feature_names: npt.ArrayLike[str] = None,
+        feature_names: npt.ArrayLike = None,
     ) -> None:
         self.constraint = constraint
         self.x = x
@@ -142,7 +142,7 @@ class NumpyConstraintsExecutor:
     def __init__(
         self,
         constraint: BaseRelationConstraint,
-        feature_names: npt.ArrayLike[str] = None,
+        feature_names: npt.ArrayLike = None,
     ):
         self.constraint = constraint
         self.feature_names = feature_names
@@ -162,7 +162,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
         self,
         constraint: BaseRelationConstraint,
         x: tf.Tensor,
-        feature_names: npt.ArrayLike[str] = None,
+        feature_names: npt.ArrayLike = None,
     ):
         self.constraint = constraint
         self.x = x
@@ -259,7 +259,7 @@ class TensorFlowConstraintsExecutor:
     def __init__(
         self,
         constraint: BaseRelationConstraint,
-        feature_names: npt.ArrayLike[str] = None,
+        feature_names: npt.ArrayLike = None,
     ):
         self.constraint = constraint
         self.feature_names = feature_names
