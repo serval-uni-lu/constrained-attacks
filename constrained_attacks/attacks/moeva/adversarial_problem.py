@@ -2,12 +2,12 @@ import numpy as np
 from pymoo.core.problem import Problem
 
 from constrained_attacks.classifier.classifier import Classifier
-from constrained_attacks.constraints.constraints_executor import (
-    NumpyConstraintsExecutor,
-)
-from constrained_attacks.constraints.new_constraints import (
+from constrained_attacks.constraints.constraints import (
     Constraints,
     get_feature_min_max,
+)
+from constrained_attacks.constraints.constraints_executor import (
+    NumpyConstraintsExecutor,
 )
 from constrained_attacks.constraints.relation_constraint import AndConstraint
 from constrained_attacks.utils import compute_distance

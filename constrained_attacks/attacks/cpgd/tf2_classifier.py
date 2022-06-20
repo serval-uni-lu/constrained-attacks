@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
 import numpy as np
 from art.estimators.classification import TensorFlowV2Classifier
 
+from constrained_attacks.constraints.constraints import Constraints
 from constrained_attacks.constraints.constraints_executor import (
     TensorFlowConstraintsExecutor,
 )
-from constrained_attacks.constraints.new_constraints import Constraints
 from constrained_attacks.constraints.relation_constraint import AndConstraint
 
 if TYPE_CHECKING:

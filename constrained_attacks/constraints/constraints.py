@@ -1,120 +1,99 @@
-import abc
-from typing import Tuple
+import logging
+from dataclasses import dataclass
+from typing import Any, List, Tuple
 
 import numpy as np
+import numpy.typing as npt
+import pandas as pd
+from constraints.relation_constraint import BaseRelationConstraint
 
 
-class Constraints(abc.ABC, metaclass=abc.ABCMeta):
-    def __init__(self):
-        self.tolerance = 0.0
+@dataclass
+class Constraints:
+    feature_types: npt.NDArray[Any]
+    mutable_features: npt.NDArray[Any]
+    lower_bounds: npt.NDArray[Any]
+    upper_bounds: npt.NDArray[Any]
+    relation_constraints: List[BaseRelationConstraint]
 
-    def check_constraints_error(self, x: np.ndarray):
-        constraints = self.evaluate(x)
-        constraints_violated = np.sum(constraints > 0, axis=0)
-        if constraints_violated.sum() > 0:
-            raise ValueError(
-                f"{constraints_violated}\n Constraints not respected "
-                f"{constraints_violated.sum()} times."
-            )
 
-    @abc.abstractmethod
-    def evaluate(self, x: np.ndarray, use_tensors: bool = False) -> np.ndarray:
-        """
-        Evaluate the distance to constraints satisfaction of x.
-        This method should be overridden by the attacker.
+def get_constraints_from_file(
+    features_path: str,
+    relation_constraints: List[BaseRelationConstraint],
+) -> Constraints:
+    features = pd.read_csv(features_path)
+    feature_type = features["type"].to_numpy()
+    mutable_mask = features["mutable"].to_numpy()
+    feature_min = features["min"].to_numpy()
+    feature_max = features["max"].to_numpy()
+    return Constraints(
+        feature_type,
+        mutable_mask,
+        feature_min,
+        feature_max,
+        relation_constraints,
+    )
 
-        Args:
-            x (np.ndarray): An array of shape (n_samples, n_features)
-                containing the sample to evaluate.
-            use_tensors (bool): Whether to use tensor operations.
 
-        Returns:
-            np.ndarray: An array of shape (n_samples, n_constraints)
-                representing the distance to constraints
-            satisfaction of each sample.
-        """
-        raise NotImplementedError
+def get_feature_min_max(
+    constraints: Constraints, x: npt.NDArray[Any]
+) -> Tuple[np.ndarray, np.ndarray]:
 
-    @abc.abstractmethod
-    def get_nb_constraints(self) -> int:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get_mutable_mask(self) -> np.ndarray:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get_feature_min_max(
-        self, dynamic_input=None
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def fix_features_types(self, x):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get_feature_type(self) -> np.ndarray:
-        raise NotImplementedError
-
-    def _calc_relationship_constraints(self, x_adv):
-        return np.max(self.evaluate(x_adv), axis=-1) <= 0
-
-    def _calc_boundary_constraints(self, x, x_adv):
-        xl, xu = zip(*[self.get_feature_min_max(x0) for x0 in x])
-        xl_ok, xu_ok = np.min(
-            (xl - np.finfo(np.float32).eps) <= x_adv, axis=1
-        ), np.min((xu + np.finfo(np.float32).eps) >= x_adv, axis=1)
-        return xl_ok * xu_ok
-
-    def _calc_type_constraints(self, x_adv):
-        int_type_mask = self.get_feature_type() != "real"
-        if int_type_mask.sum() > 0:
-            type_ok = np.min(
-                (x_adv[:, int_type_mask] == np.round(x_adv[:, int_type_mask])),
-                axis=1,
-            )
-        else:
-            type_ok = np.ones(shape=x_adv.shape[:-1], dtype=np.bool)
-        return type_ok
-
-    def _calc_mutable_constraints(self, x, x_adv):
-        immutable_mask = ~self.get_mutable_mask()
-        if immutable_mask.sum() > 0:
-            mutable_ok = np.min(
-                (x[:, immutable_mask] == x_adv[:, immutable_mask]), axis=1
-            )
-        else:
-            mutable_ok = np.ones(shape=x_adv.shape[:-1], dtype=np.bool)
-        return mutable_ok
-
-    def check_constraints(self, x, x_adv) -> np.ndarray:
-        constraints = np.array(
-            [
-                self._calc_relationship_constraints(x_adv),
-                self._calc_boundary_constraints(x, x_adv),
-                self._calc_type_constraints(x_adv),
-                self._calc_mutable_constraints(x, x_adv),
-            ]
+    # Todo: Implement a faster method than this recursive solution
+    if (x is not None) and (x.ndim == 2):
+        feature_min, feature_max = zip(
+            *np.array([get_feature_min_max(constraints, x0) for x0 in x])
         )
-        # print(np.sum(constraints, axis=1))
-        constraints = np.min(constraints, axis=0)
-        return constraints
+        return feature_min, feature_max
 
-    def fix_type_constraints(self, x_clean, x_adv):
-        int_type_mask = self.get_feature_type() != "real"
-        if int_type_mask.sum() > 0:
-            x_adv = x_adv.copy()
-            x_adv_int = x_adv[..., int_type_mask]
-            x_clean_int = x_clean[..., int_type_mask]
-            x_plus_minus = (
-                x_adv_int
-                - np.repeat(
-                    x_clean_int[:, np.newaxis, :], x_adv_int.shape[1], axis=1
-                )
-            ) >= 0
+    lower_bounds, upper_bounds = (
+        constraints.lower_bounds,
+        constraints.upper_bounds,
+    )
+    # By default min and max are the extreme values
+    feature_min = np.full(lower_bounds.shape, np.nan)
+    feature_max = np.full(upper_bounds.shape, np.nan)
 
-            x_adv_int[x_plus_minus] = np.floor(x_adv_int[x_plus_minus])
-            x_adv_int[~x_plus_minus] = np.ceil(x_adv_int[~x_plus_minus])
-            x_adv[..., int_type_mask] = x_adv_int
-        return x_adv
+    # Creating the mask of value that should be provided by input
+    min_dynamic = lower_bounds.astype(str) == "dynamic"
+    max_dynamic = upper_bounds.astype(str) == "dynamic"
+
+    # Replace de non-dynamic value by the value provided in the definition
+    feature_min[~min_dynamic] = lower_bounds[~min_dynamic]
+    feature_max[~max_dynamic] = upper_bounds[~max_dynamic]
+
+    # If the dynamic input was provided, replace value for output,
+    # else do nothing (keep the extreme values)
+    if (x is not None) and (min_dynamic.sum() > 0):
+        feature_min[min_dynamic] = x[min_dynamic]
+    if (x is not None) and (max_dynamic.sum() > 0):
+        feature_max[max_dynamic] = x[max_dynamic]
+
+    # Raise warning if dynamic input waited but not provided
+    dynamic_number = min_dynamic.sum() + max_dynamic.sum()
+    if dynamic_number > 0 and x is None:
+        logging.getLogger().warning(
+            f"{dynamic_number} feature min and max are dynamic but no "
+            "input were provided."
+        )
+
+    return feature_min, feature_max
+
+
+def fix_feature_types(constraints: Constraints, x_clean, x_adv):
+    int_type_mask = constraints.feature_types != "real"
+    if int_type_mask.sum() > 0:
+        x_adv = x_adv.copy()
+        x_adv_int = x_adv[..., int_type_mask]
+        x_clean_int = x_clean[..., int_type_mask]
+        x_plus_minus = (
+            x_adv_int
+            - np.repeat(
+                x_clean_int[:, np.newaxis, :], x_adv_int.shape[1], axis=1
+            )
+        ) >= 0
+
+        x_adv_int[x_plus_minus] = np.floor(x_adv_int[x_plus_minus])
+        x_adv_int[~x_plus_minus] = np.ceil(x_adv_int[~x_plus_minus])
+        x_adv[..., int_type_mask] = x_adv_int
+    return x_adv

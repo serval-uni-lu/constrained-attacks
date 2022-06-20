@@ -5,7 +5,7 @@ from constrained_attacks.constraints.constraints_executor import (
     TensorFlowConstraintsExecutor,
 )
 from constrained_attacks.constraints.relation_constraint import AndConstraint
-from tests.attacks.moeva.url_constraints_language import get_url_constraints
+from tests.attacks.moeva.url_constraints import get_url_constraints
 
 
 def test_tf_constraints():

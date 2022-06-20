@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.pipeline import Pipeline
 
 from constrained_attacks.objective_calculator import ObjectiveCalculator
-from tests.attacks.moeva.url_constraints_language import get_url_constraints
+from tests.attacks.moeva.url_constraints import get_url_constraints
 
 
 def test_cache_objective_calculation():

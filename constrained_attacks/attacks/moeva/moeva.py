@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
 from constrained_attacks.attacks.moeva.operators import InitialStateSampling
-from constrained_attacks.constraints.new_constraints import Constraints
+from constrained_attacks.constraints.constraints import Constraints
 from constrained_attacks.utils import cut_in_batch
 
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem

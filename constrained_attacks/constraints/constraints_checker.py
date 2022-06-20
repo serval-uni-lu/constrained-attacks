@@ -3,12 +3,12 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from constrained_attacks.constraints.constraints_executor import (
-    NumpyConstraintsExecutor,
-)
-from constrained_attacks.constraints.new_constraints import (
+from constrained_attacks.constraints.constraints import (
     Constraints,
     get_feature_min_max,
+)
+from constrained_attacks.constraints.constraints_executor import (
+    NumpyConstraintsExecutor,
 )
 from constrained_attacks.constraints.relation_constraint import AndConstraint
 

@@ -8,7 +8,7 @@ from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
 )
 from constrained_attacks.objective_calculator import ObjectiveCalculator
-from tests.attacks.moeva.url_constraints_language import get_url_constraints
+from tests.attacks.moeva.url_constraints import get_url_constraints
 
 
 def test_run_pgd():

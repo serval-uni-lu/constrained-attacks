@@ -3,7 +3,7 @@ from art.attacks.evasion import ProjectedGradientDescent as PGD
 from art.estimators.classification import TensorFlowV2Classifier
 
 from constrained_attacks.attacks.cpgd.tf2_classifier import TF2Classifier
-from constrained_attacks.constraints.new_constraints import (
+from constrained_attacks.constraints.constraints import (
     Constraints,
     fix_feature_types,
     get_feature_min_max,
