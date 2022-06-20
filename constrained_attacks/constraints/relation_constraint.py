@@ -49,7 +49,7 @@ class Value(ConstraintsNode):
 
 
 class Constant(Value):
-    def __init__(self, constant: int):
+    def __init__(self, constant: Union[int, float]):
         self.constant = constant
 
 
