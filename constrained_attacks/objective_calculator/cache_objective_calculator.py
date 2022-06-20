@@ -2,10 +2,11 @@ import sys
 
 import numpy
 import numpy as np
+from constraints.constraints_checker import ConstraintChecker
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.new_constraints import Constraints
 from constrained_attacks.utils import compute_distance
 
 numpy.set_printoptions(threshold=sys.maxsize)
@@ -69,10 +70,12 @@ class ObjectiveCalculator:
         self.objectives_eval = objectives_eval
 
     def compute_objectives_eval(self, x_clean, y_clean, x_adv):
+        constraints_checker = ConstraintChecker(self.constraints)
+
         constraint_violation = np.array(
             [
                 1
-                - self.constraints.check_constraints(
+                - constraints_checker.check_constraints(
                     x_clean[i][np.newaxis, :], x_adv[i]
                 )
                 for i in range(len(x_clean))

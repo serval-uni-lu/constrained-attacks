@@ -11,6 +11,12 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
 import numpy as np
 from art.estimators.classification import TensorFlowV2Classifier
 
+from constrained_attacks.constraints.constraints_executor import (
+    TensorFlowConstraintsExecutor,
+)
+from constrained_attacks.constraints.new_constraints import Constraints
+from constrained_attacks.constraints.relation_constraint import AndConstraint
+
 if TYPE_CHECKING:
     # pylint: disable=C0412
     import tensorflow.compat.v1 as tf
@@ -27,7 +33,7 @@ class TF2Classifier(TensorFlowV2Classifier):
         model: Callable,
         nb_classes: int,
         input_shape: Tuple[int, ...],
-        constraints,
+        constraints: Constraints,
         scaler,
         loss_object: Optional["tf.keras.losses.Loss"] = None,
         train_step: Optional[Callable] = None,
@@ -94,9 +100,11 @@ class TF2Classifier(TensorFlowV2Classifier):
 
     def constraint_loss(self, inputs):
 
-        # inputs = self.unscale_features(inputs)
+        executor = TensorFlowConstraintsExecutor(
+            AndConstraint(self.constraints.relation_constraints)
+        )
 
-        violations = self.constraints.evaluate_tf(inputs)
+        violations = executor.execute(inputs)
 
         return violations
 

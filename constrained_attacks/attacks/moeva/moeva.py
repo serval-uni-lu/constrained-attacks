@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
 from constrained_attacks.attacks.moeva.operators import InitialStateSampling
-from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.new_constraints import Constraints
 from constrained_attacks.utils import cut_in_batch
 
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
@@ -70,7 +70,7 @@ class Moeva2:
         self.ref_points = None
 
     def _check_inputs(self, x: np.ndarray, y) -> None:
-        expected_input_length = self.constraints.get_mutable_mask().shape[0]
+        expected_input_length = self.constraints.mutable_features.shape[0]
         if x.shape[1] != expected_input_length:
             raise ValueError(
                 f"Mutable mask has shape (n_features,): "
@@ -92,8 +92,8 @@ class Moeva2:
 
     def _create_algorithm(self) -> GeneticAlgorithm:
 
-        type_mask = self.constraints.get_feature_type()[
-            self.constraints.get_mutable_mask()
+        type_mask = self.constraints.feature_types[
+            self.constraints.mutable_features
         ]
 
         sampling = InitialStateSampling(type_mask=type_mask)
@@ -172,7 +172,7 @@ class Moeva2:
             [ind.X.astype(np.float64) for ind in result.pop]
         )
         x_adv = np.repeat(x.reshape(1, -1), x_adv_mutable.shape[0], axis=0)
-        x_adv[:, self.constraints.get_mutable_mask()] = x_adv_mutable
+        x_adv[:, self.constraints.mutable_features] = x_adv_mutable
 
         if self.save_history is not None:
             history = np.array(result.algorithm.callback.data["F"])

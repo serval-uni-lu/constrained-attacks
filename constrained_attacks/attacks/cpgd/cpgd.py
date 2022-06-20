@@ -3,7 +3,11 @@ from art.attacks.evasion import ProjectedGradientDescent as PGD
 from art.estimators.classification import TensorFlowV2Classifier
 
 from constrained_attacks.attacks.cpgd.tf2_classifier import TF2Classifier
-from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.new_constraints import (
+    Constraints,
+    fix_feature_types,
+    get_feature_min_max,
+)
 
 
 class CPGD:
@@ -37,7 +41,9 @@ class CPGD:
         scaler = self.classifier[0]
         tf_model = self.classifier[1].get_internal_classifier()
 
-        xl, xu = scaler.transform(self.constraints.get_feature_min_max())
+        xl, xu = get_feature_min_max(self.constraints, x_clean)
+
+        xl, xu = scaler.transform(xl), scaler.transform(xu)
         xu[xu == xl] = xu[xu == xl] + 0.0000000000001
         if self.enable_constraints:
             tf_model_atk = TF2Classifier(
@@ -69,12 +75,12 @@ class CPGD:
         x_adv = attack.generate(
             scaler.transform(x_clean),
             y_clean,
-            mask=self.constraints.get_mutable_mask(),
+            mask=self.constraints.mutable_features,
         )
 
         x_adv = scaler.inverse_transform(x_adv)
 
         # Fix datatypes
         x_adv = x_adv[:, np.newaxis, :]
-        x_adv = self.constraints.fix_type_constraints(x_clean, x_adv)
+        x_adv = fix_feature_types(self.constraints, x_clean, x_adv)
         return x_adv

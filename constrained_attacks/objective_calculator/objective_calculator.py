@@ -3,10 +3,11 @@ import sys
 import numpy
 import numpy as np
 import pandas as pd
+from constraints.constraints_checker import ConstraintChecker
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.new_constraints import Constraints
 from constrained_attacks.utils import compute_distance
 
 numpy.set_printoptions(threshold=sys.maxsize)
@@ -40,7 +41,9 @@ class ObjectiveCalculator:
     def _calculate_objective(self, x_clean, y_clean, x_adv):
 
         # Constraints
-        constraint_violation = 1 - self.constraints.check_constraints(
+        constraints_checker = ConstraintChecker(self.constraints)
+
+        constraint_violation = 1 - constraints_checker.check_constraints(
             x_clean[np.newaxis, :], x_adv
         )
 

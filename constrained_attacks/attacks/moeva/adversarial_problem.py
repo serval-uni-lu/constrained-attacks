@@ -2,7 +2,14 @@ import numpy as np
 from pymoo.core.problem import Problem
 
 from constrained_attacks.classifier.classifier import Classifier
-from constrained_attacks.constraints.constraints import Constraints
+from constrained_attacks.constraints.constraints_executor import (
+    NumpyConstraintsExecutor,
+)
+from constrained_attacks.constraints.new_constraints import (
+    Constraints,
+    get_feature_min_max,
+)
+from constrained_attacks.constraints.relation_constraint import AndConstraint
 from constrained_attacks.utils import compute_distance
 
 NB_OBJECTIVES = 3
@@ -39,14 +46,14 @@ class AdversarialProblem(Problem):
         )[0]
 
         # Computed attributes
-        xl, xu = constraints.get_feature_min_max()
+        xl, xu = get_feature_min_max(constraints, x_clean)
         xl, xu = (
-            xl[constraints.get_mutable_mask()],
-            xu[self.constraints.get_mutable_mask()],
+            xl[constraints.mutable_features],
+            xu[self.constraints.mutable_features],
         )
 
         super().__init__(
-            n_var=self.constraints.get_mutable_mask().sum(),
+            n_var=self.constraints.mutable_features.sum(),
             n_obj=get_nb_objectives(),
             n_constr=0,
             xl=xl,
@@ -64,10 +71,11 @@ class AdversarialProblem(Problem):
         return compute_distance(x_1, x_2, self.norm)
 
     def _calculate_constraints(self, x):
-        G = self.constraints.evaluate(x)
-        G = G * (G > 0).astype(np.float)
+        executor = NumpyConstraintsExecutor(
+            AndConstraint(self.constraints.relation_constraints)
+        )
 
-        return G
+        return executor.execute(x)
 
     def _evaluate(self, x, out, *args, **kwargs):
 
@@ -85,7 +93,7 @@ class AdversarialProblem(Problem):
         # Retrieve original representation
 
         x_adv = np.repeat(self.x_clean.reshape(1, -1), x.shape[0], axis=0)
-        x_adv[:, self.constraints.get_mutable_mask()] = x
+        x_adv[:, self.constraints.mutable_features] = x
 
         obj_misclassify = self._obj_misclassify(x_adv)
 
@@ -93,8 +101,7 @@ class AdversarialProblem(Problem):
             self.fun_distance_preprocess(x_adv), self.x_clean_distance
         )
 
-        all_constraints = self._calculate_constraints(x_adv)
-        obj_constraints = all_constraints.sum(axis=1)
+        obj_constraints = self._calculate_constraints(x_adv)
 
         F = [obj_misclassify, obj_distance, obj_constraints]
 

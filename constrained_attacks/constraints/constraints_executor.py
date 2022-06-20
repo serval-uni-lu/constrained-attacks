@@ -204,7 +204,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
         # ------------ Values
         if isinstance(constraint_node, Constant):
-            return tf.constant(constraint_node.constant, dtype=float)
+            return tf.constant(constraint_node.constant, dtype=tf.float32)
 
         elif isinstance(constraint_node, Feature):
             feature_index = get_feature_index(

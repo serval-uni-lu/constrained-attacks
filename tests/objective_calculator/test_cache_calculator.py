@@ -3,11 +3,11 @@ import numpy as np
 from sklearn.pipeline import Pipeline
 
 from constrained_attacks.objective_calculator import ObjectiveCalculator
-from tests.attacks.moeva.url_constraints import UrlConstraints
+from tests.attacks.moeva.url_constraints_language import get_url_constraints
 
 
 def test_cache_objective_calculation():
-    constraints = UrlConstraints()
+    constraints = get_url_constraints()
     x_clean = np.load("tests/resources/url/baseline_X_test_candidates.npy")[
         :10
     ]

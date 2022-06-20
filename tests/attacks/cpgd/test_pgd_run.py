@@ -8,12 +8,12 @@ from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
 )
 from constrained_attacks.objective_calculator import ObjectiveCalculator
-from tests.attacks.moeva.url_constraints import UrlConstraints
+from tests.attacks.moeva.url_constraints_language import get_url_constraints
 
 
 def test_run_pgd():
 
-    constraints = UrlConstraints()
+    constraints = get_url_constraints()
     x_clean = np.load("tests/resources/url/baseline_X_test_candidates.npy")[
         :10
     ]
@@ -60,7 +60,7 @@ def test_run_pgd():
 
 def test_run_cpgd():
 
-    constraints = UrlConstraints()
+    constraints = get_url_constraints()
     x_clean = np.load("tests/resources/url/baseline_X_test_candidates.npy")[
         :10
     ]

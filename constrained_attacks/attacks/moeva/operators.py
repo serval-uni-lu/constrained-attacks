@@ -14,7 +14,7 @@ class InitialStateSampling(Sampling):
     def _do(self, problem, n_samples, **kwargs):
 
         # Retrieve original
-        x_clean = problem.x_clean[problem.constraints.get_mutable_mask()]
+        x_clean = problem.x_clean[problem.constraints.mutable_features]
 
         x_generated = np.tile(x_clean, (n_samples, 1))
 
