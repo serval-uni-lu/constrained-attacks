@@ -101,7 +101,8 @@ class TF2Classifier(TensorFlowV2Classifier):
     def constraint_loss(self, inputs):
 
         executor = TensorFlowConstraintsExecutor(
-            AndConstraint(self.constraints.relation_constraints)
+            AndConstraint(self.constraints.relation_constraints),
+            feature_names=self.constraints.feature_names,
         )
 
         violations = executor.execute(inputs)

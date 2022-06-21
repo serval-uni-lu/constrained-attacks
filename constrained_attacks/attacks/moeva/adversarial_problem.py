@@ -72,7 +72,8 @@ class AdversarialProblem(Problem):
 
     def _calculate_constraints(self, x):
         executor = NumpyConstraintsExecutor(
-            AndConstraint(self.constraints.relation_constraints)
+            AndConstraint(self.constraints.relation_constraints),
+            feature_names=self.constraints.feature_names,
         )
 
         return executor.execute(x)

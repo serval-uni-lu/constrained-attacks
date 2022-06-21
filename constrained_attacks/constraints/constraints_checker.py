@@ -19,7 +19,8 @@ class ConstraintChecker:
 
     def _check_relationship_constraints(self, x_adv: npt.NDArray[Any]):
         constraints_executor = NumpyConstraintsExecutor(
-            AndConstraint(self.constraints.relation_constraints)
+            AndConstraint(self.constraints.relation_constraints),
+            feature_names=self.constraints.feature_names,
         )
         out = constraints_executor.execute(x_adv)
         return out <= 0

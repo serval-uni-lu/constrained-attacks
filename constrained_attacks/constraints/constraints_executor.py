@@ -173,7 +173,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
     def __init__(
         self,
         constraint: BaseRelationConstraint,
-        x: tf.Tensor,
+        x: "tf.Tensor",
         feature_names: npt.ArrayLike = None,
     ):
         self.constraint = constraint
@@ -181,7 +181,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
         self.feature_names = feature_names
 
     @staticmethod
-    def get_zeros_tf(operands: typing.List[tf.Tensor]) -> tf.Tensor:
+    def get_zeros_tf(operands: typing.List["tf.Tensor"]) -> "tf.Tensor":
         import tensorflow as tf
 
         i = np.argmax([op.ndim for op in operands])
@@ -199,7 +199,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
             "**": lambda left, right: tf.math.pow(left, right),
         }
 
-    def visit(self, constraint_node: ConstraintsNode) -> tf.Tensor:
+    def visit(self, constraint_node: ConstraintsNode) -> "tf.Tensor":
         import tensorflow as tf
 
         # ------------ Values
@@ -261,11 +261,12 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
         else:
             raise NotImplementedError
 
-    def execute(self) -> tf.Tensor:
+    def execute(self) -> "tf.Tensor":
         return self.constraint.accept(self)
 
 
 class TensorFlowConstraintsExecutor:
+
     import tensorflow as tf
 
     def __init__(
@@ -276,7 +277,7 @@ class TensorFlowConstraintsExecutor:
         self.constraint = constraint
         self.feature_names = feature_names
 
-    def execute(self, x: tf.Tensor) -> tf.Tensor:
+    def execute(self, x: "tf.Tensor") -> "tf.Tensor":
         visitor = TensorFlowConstraintsVisitor(
             self.constraint, x, self.feature_names
         )

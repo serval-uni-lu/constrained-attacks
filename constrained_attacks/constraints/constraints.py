@@ -18,6 +18,7 @@ class Constraints:
     lower_bounds: npt.NDArray[Any]
     upper_bounds: npt.NDArray[Any]
     relation_constraints: List[BaseRelationConstraint]
+    feature_names: List[str] = None
 
 
 def get_constraints_from_file(
@@ -29,12 +30,14 @@ def get_constraints_from_file(
     mutable_mask = features["mutable"].to_numpy()
     feature_min = features["min"].to_numpy()
     feature_max = features["max"].to_numpy()
+    feature_names = features["feature"].to_numpy()
     return Constraints(
         feature_type,
         mutable_mask,
         feature_min,
         feature_max,
         relation_constraints,
+        feature_names,
     )
 
 
