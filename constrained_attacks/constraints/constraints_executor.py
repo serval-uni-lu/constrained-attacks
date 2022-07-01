@@ -168,7 +168,7 @@ class NumpyConstraintsExecutor:
 
 class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
-    import tensorflow as tf
+    # import tensorflow as tf
 
     def __init__(
         self,
@@ -267,7 +267,7 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
 
 class TensorFlowConstraintsExecutor:
 
-    import tensorflow as tf
+    # import tensorflow as tf
 
     def __init__(
         self,
