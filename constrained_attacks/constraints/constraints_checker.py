@@ -14,8 +14,9 @@ from constrained_attacks.constraints.relation_constraint import AndConstraint
 
 
 class ConstraintChecker:
-    def __init__(self, constraints: Constraints):
+    def __init__(self, constraints: Constraints, tolerance: float = 0.0):
         self.constraints = constraints
+        self.tolerance = tolerance
 
     def _check_relationship_constraints(self, x_adv: npt.NDArray[Any]):
         constraints_executor = NumpyConstraintsExecutor(
@@ -23,7 +24,7 @@ class ConstraintChecker:
             feature_names=self.constraints.feature_names,
         )
         out = constraints_executor.execute(x_adv)
-        return out <= 0
+        return out <= self.tolerance
 
     def _check_boundary_constraints(self, x, x_adv):
         xl, xu = get_feature_min_max(self.constraints, x)
