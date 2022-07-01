@@ -1,4 +1,4 @@
-features,type,mutable,min,max
+feature,type,mutable,min,max
 length_url,int,True,12.0,1641.0
 length_hostname,int,True,4.0,214.0
 ip,int,True,0.0,1.0
