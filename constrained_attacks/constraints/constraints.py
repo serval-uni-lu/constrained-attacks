@@ -47,9 +47,9 @@ def get_feature_min_max(
 
     # Todo: Implement a faster method than this recursive solution
     if (x is not None) and (x.ndim == 2):
-        feature_min, feature_max = zip(
-            *np.array([get_feature_min_max(constraints, x0) for x0 in x])
-        )
+        out = [get_feature_min_max(constraints, x0) for x0 in x]
+        feature_min = np.array([e[0] for e in out])
+        feature_max = np.array([e[1] for e in out])
         return feature_min, feature_max
 
     lower_bounds, upper_bounds = (
