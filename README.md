@@ -38,7 +38,7 @@ Additional optional requirements for C-PGD are:
 
 You can find a usage example
 - for MoEvA2: [tests/attacks/moeva/test_moeva_run.py](tests/attacks/moeva/test_moeva_run.py)
-- for C-PGD: [tests/attacks/cpgd/test_pgd_run.py](tests/attacks/moeva/test_pgd_run.py)
+- for C-PGD: [tests/attacks/cpgd/test_pgd_run.py](tests/attacks/cpgd/test_pgd_run.py)
 - for the constraints definition: [tests/attacks/moeva/url_constraints.py](tests/attacks/moeva/url_constraints.py).
 ## Licence
 
