@@ -1,4 +1,5 @@
 # Constrained attacks
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Description
 
@@ -40,10 +41,6 @@ You can find a usage example
 - for MoEvA2: [tests/attacks/moeva/test_moeva_run.py](tests/attacks/moeva/test_moeva_run.py)
 - for C-PGD: [tests/attacks/cpgd/test_pgd_run.py](tests/attacks/cpgd/test_pgd_run.py)
 - for the constraints definition: [tests/attacks/moeva/url_constraints.py](tests/attacks/moeva/url_constraints.py).
-## Licence
-
-[//]: # (TODO: Add license)
-The code is under TBD.
 
 ## Citation
 If you have used our framework for research purposes, you can cite our publication by:
