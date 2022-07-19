@@ -147,7 +147,7 @@ class ObjectiveCalculator:
     ):
         if self.objectives_respected is None or recompute:
             objectives_eval = self.get_objectives_eval(
-                x_clean, y_clean, x_adv, recompute=False
+                x_clean, y_clean, x_adv, recompute
             )
             self.objectives_respected = self.compute_objectives_respected(
                 objectives_eval, y_clean
