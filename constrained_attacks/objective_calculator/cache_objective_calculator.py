@@ -56,14 +56,17 @@ class ObjectiveCalculator:
         self.norm = norm
         self.fun_distance_preprocess = fun_distance_preprocess
 
-        if isinstance(thresholds["misclassification"], float):
-            thresholds["misclassification"] = np.array(
+        self.thresholds = thresholds.copy()
+
+        if isinstance(self.thresholds["misclassification"], float):
+            self.thresholds["misclassification"] = np.array(
                 [
-                    1 - thresholds["misclassification"],
-                    thresholds["misclassification"],
+                    1 - self.thresholds["misclassification"],
+                    self.thresholds["misclassification"],
                 ]
             )
-        self.thresholds = thresholds
+        if "constraints" not in self.thresholds:
+            self.thresholds["constraints"] = 0.0
         self.n_jobs = n_jobs
         self.objectives_eval = None
         self.objectives_respected = None
@@ -72,7 +75,9 @@ class ObjectiveCalculator:
         self.objectives_eval = objectives_eval
 
     def compute_objectives_eval(self, x_clean, y_clean, x_adv):
-        constraints_checker = ConstraintChecker(self.constraints)
+        constraints_checker = ConstraintChecker(
+            self.constraints, self.thresholds["constraints"]
+        )
 
         constraint_violation = np.array(
             [
