@@ -264,6 +264,56 @@ class ObjectiveCalculator:
         successful_attacks = np.concatenate(successful_attacks, axis=0)
 
         if return_index_success:
-            return successful_attacks, index_success
+            return successful_attacks, index_success.astype(np.int)
         else:
             return successful_attacks
+
+    def get_successful_attacks_indexes(
+        self,
+        x_clean,
+        y_clean,
+        x_adv,
+        preferred_metrics="misclassification",
+        order="asc",
+        max_inputs=-1,
+        return_index_success=False,
+        recompute=False,
+    ):
+
+        metrics_to_index = {"misclassification": 1, "distance": 2}
+
+        objectives_values = self.get_objectives_eval(
+            x_clean, y_clean, x_adv, recompute=recompute
+        )
+        objectives_respected = self.get_objectives_respected(
+            x_clean, y_clean, x_adv, recompute=recompute
+        )
+        objectives_respected = objectives_respected[-1]
+
+        objectives_values_sorted = np.argsort(
+            objectives_values[metrics_to_index[preferred_metrics]], axis=1
+        )
+        if order == "desc":
+            objectives_values_sorted = objectives_values_sorted[..., ::-1]
+
+        x_i, x_j = [], []
+        for i in range(objectives_values_sorted.shape[0]):
+            sorted_index_success = objectives_values_sorted[i][
+                objectives_respected[i][objectives_values_sorted[i]]
+            ]
+            if max_inputs > -1:
+                sorted_index_success = sorted_index_success[:max_inputs]
+
+            if len(sorted_index_success) > 0:
+                x_i.append(np.repeat([i], len(sorted_index_success)))
+                x_j.append(sorted_index_success)
+
+        x_i, x_j = np.concatenate(x_i), np.concatenate(x_j)
+
+        return x_i, x_j
+
+    def reset_objectives_respected(self):
+        self.objectives_respected = None
+
+    def reset_objectives_eval(self):
+        self.objectives_eval = None
