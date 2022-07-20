@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "constrained-attacks"
-version = "0.1.0"
+version = "0.1.1"
 description = "constrained-attacks is a framework to generate adversarial examples under domain specific constraints."
 authors = ["Thibault Simonetto <thibault.simonetto.001@student.uni.lu>"]
 
