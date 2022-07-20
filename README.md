@@ -44,7 +44,15 @@ You can find a usage example
 - for the constraints definition: [tests/attacks/moeva/url_constraints.py](tests/attacks/moeva/url_constraints.py).
 
 ## Citation
+
 If you have used our framework for research purposes, you can cite our publication by:
+
+BibTex:
 ```
-TBD
+@article{simonetto2021unified,
+  title={A unified framework for adversarial attack and defense in constrained feature space},
+  author={Simonetto, Thibault and Dyrmishi, Salijona and Ghamizi, Salah and Cordy, Maxime and Traon, Yves Le},
+  journal={arXiv preprint arXiv:2112.01156},
+  year={2021}
+}
 ```
