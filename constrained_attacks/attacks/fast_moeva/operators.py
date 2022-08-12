@@ -41,7 +41,7 @@ def survive(
         pop[i * n_pop : (i + 1) * n_pop] = local_pop.get("X")
         pop_f[i * n_pop : (i + 1) * n_pop] = local_pop.get("F")
 
-        return pop, pop_f
+    return pop, pop_f
 
 
 def select(n_input, n_pop, n_offspring):
