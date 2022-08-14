@@ -2,13 +2,14 @@ import math
 import random
 
 import numpy as np
-from pymoo.algorithms.moo.rnsga3 import AspirationPointSurvival
 from pymoo.factory import get_reference_directions
-from pymoo.util.reference_direction import UniformReferenceDirectionFactory
 from tqdm import tqdm
 
 from constrained_attacks.attacks.fast_moeva.evaluator import Evaluator
 from constrained_attacks.attacks.fast_moeva.operators import mate, survive
+from constrained_attacks.attacks.fast_moeva.survival import (
+    ReferenceDirectionSurvival,
+)
 from constrained_attacks.constraints.constraints import (
     Constraints,
     get_feature_min_max,
@@ -55,32 +56,18 @@ class Moeva2:
         history_pop_f = []
         n_input, n_var = x.shape
         n_objective = 3
-        ref_points = get_reference_directions(
-            "energy", n_objective, self.n_pop, seed=1
-        )
-        pop_per_ref_point = 1
-        mu = 0.05
 
-        n_obj = ref_points.shape[1]
+        ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=12)
 
-        # add the aspiration point lines
-        aspiration_ref_dirs = UniformReferenceDirectionFactory(
-            n_dim=n_obj, n_points=pop_per_ref_point
-        ).do()
-
-        pop_size = (
-            ref_points.shape[0] * aspiration_ref_dirs.shape[0]
-            + aspiration_ref_dirs.shape[1]
-        )
+        pop_size = self.n_pop
 
         # Impure function call, create one per sample
         survivals = []
         for _ in range(n_input):
-            survival = AspirationPointSurvival(
-                ref_points, aspiration_ref_dirs, mu=mu
-            )
+            survival = ReferenceDirectionSurvival(ref_dirs=ref_dirs)
             survival.filter_infeasible = False
             survivals.append(survival)
+
         evaluator_obj = Evaluator(
             x,
             y,
@@ -131,6 +118,7 @@ class Moeva2:
                 off,
                 off_f,
                 self.n_offsprings,
+                self.n_jobs,
             )
             history_pop_f.append(pop_f.copy())
 

@@ -2,14 +2,17 @@ import math
 from typing import List
 
 import numpy as np
-from pymoo.algorithms.moo.rnsga3 import AspirationPointSurvival
-from pymoo.core.population import Population
+from joblib import Parallel, delayed
 from pymoo.operators.crossover.pntx import PointCrossover
 from pymoo.util.misc import random_permuations
 
+from constrained_attacks.attacks.fast_moeva.survival import (
+    ReferenceDirectionSurvival,
+)
 
-def survive(
-    survivals: List[AspirationPointSurvival],
+
+def survive_one(
+    survival: ReferenceDirectionSurvival,
     pop,
     pop_f,
     n_pop,
@@ -17,29 +20,56 @@ def survive(
     off_f,
     n_off,
 ):
+    local_pop_i = np.arange(n_pop + n_off)
+    F = np.concatenate(
+        [
+            pop_f,
+            off_f,
+        ],
+        axis=0,
+    )
+    # local_pop_i = Population.new("X", local_pop_i)
+    local_pop_i_survive = survival.do(local_pop_i, F, n_survive=n_pop)
+    # local_pop_i_survive = local_pop_i_survive.get("X")
+    local_pop_survive = np.concatenate(
+        [
+            pop[local_pop_i_survive[local_pop_i_survive < n_pop]],
+            off[local_pop_i_survive[local_pop_i_survive >= n_pop] - n_pop],
+        ],
+        axis=0,
+    )
+    return local_pop_survive, F[local_pop_i_survive]
 
-    for i, survival in enumerate(survivals):
-        local_pop = np.concatenate(
-            [
-                pop[i * n_pop : (i + 1) * n_pop],
-                off[i * n_off : (i + 1) * n_off],
-            ],
-            axis=0,
+
+def survive(
+    survivals: List[ReferenceDirectionSurvival],
+    pop,
+    pop_f,
+    n_pop,
+    off,
+    off_f,
+    n_off,
+    n_jobs,
+):
+
+    # for i, survival in tqdm(enumerate(survivals), total=len(survivals)):
+    batch_size = np.ceil(len(survivals) / n_jobs).astype(int)
+    out = Parallel(n_jobs=n_jobs, batch_size=batch_size, verbose=0)(
+        delayed(survive_one)(
+            survivals[i],
+            pop[i * n_pop : (i + 1) * n_pop],
+            pop_f[i * n_pop : (i + 1) * n_pop],
+            n_pop,
+            off[i * n_off : (i + 1) * n_off],
+            off_f[i * n_off : (i + 1) * n_off],
+            n_off,
         )
-        local_pop = Population.new("X", local_pop)
-        local_pop.set(
-            "F",
-            np.concatenate(
-                [
-                    pop_f[i * n_pop : (i + 1) * n_pop],
-                    off_f[i * n_off : (i + 1) * n_off],
-                ],
-                axis=0,
-            ),
-        )
-        local_pop = survival.do(None, local_pop, n_survive=n_pop)
-        pop[i * n_pop : (i + 1) * n_pop] = local_pop.get("X")
-        pop_f[i * n_pop : (i + 1) * n_pop] = local_pop.get("F")
+        for i in range(len(survivals))
+    )
+
+    for i in range(len(out)):
+        pop[i * n_pop : (i + 1) * n_pop] = out[i][0]
+        pop_f[i * n_pop : (i + 1) * n_pop] = out[i][1]
 
     return pop, pop_f
 
