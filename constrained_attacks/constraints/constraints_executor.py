@@ -282,3 +282,87 @@ class TensorFlowConstraintsExecutor:
             self.constraint, x, self.feature_names
         )
         return visitor.execute()
+
+
+class TextConstraintsVisitor(ConstraintsVisitor):
+
+    str_operator_to_result = {
+        "+": lambda left, right: left + right,
+        "-": lambda left, right: left - right,
+        "*": lambda left, right: left * right,
+        "/": lambda left, right: left / right,
+        "**": lambda left, right: left**right,
+    }
+
+    def __init__(
+        self,
+        constraint: BaseRelationConstraint,
+    ) -> None:
+        self.constraint = constraint
+
+    def visit(self, constraint_node: ConstraintsNode) -> str:
+        # ------------ Values
+        if isinstance(constraint_node, Constant):
+            return str(constraint_node.constant)
+
+        elif isinstance(constraint_node, Feature):
+            return f"F({str(constraint_node.feature_id)})"
+
+        elif isinstance(constraint_node, MathOperation):
+            left_operand = constraint_node.left_operand.accept(self)
+            right_operand = constraint_node.right_operand.accept(self)
+            operator = constraint_node.operator
+            return f"({left_operand} {operator} {right_operand})"
+
+        elif isinstance(constraint_node, SafeDivision):
+            dividend = constraint_node.dividend.accept(self)
+            divisor = constraint_node.divisor.accept(self)
+            fill_value = constraint_node.fill_value.accept(self)
+            return f"SafeDiv({dividend}, {divisor}, {fill_value})"
+
+        # ------------ Constraints
+
+        # ------ Binary
+        elif isinstance(constraint_node, OrConstraint):
+            operands = [e.accept(self) for e in constraint_node.operands]
+            out = " OR ".join(operands)
+            return f"({out})"
+
+        elif isinstance(constraint_node, AndConstraint):
+            operands = [e.accept(self) for e in constraint_node.operands]
+            out = " AND ".join(operands)
+            return f"({out})"
+
+        # ------ Comparison
+        elif isinstance(constraint_node, LessEqualConstraint):
+            left_operand = constraint_node.left_operand.accept(self)
+            right_operand = constraint_node.right_operand.accept(self)
+            return f"({left_operand} <= {right_operand})"
+
+        elif isinstance(constraint_node, LessConstraint):
+            left_operand = constraint_node.left_operand.accept(self) + EPS
+            right_operand = constraint_node.right_operand.accept(self)
+            return f"({left_operand} < {right_operand})"
+
+        elif isinstance(constraint_node, EqualConstraint):
+            left_operand = constraint_node.left_operand.accept(self)
+            right_operand = constraint_node.right_operand.accept(self)
+            return f"({left_operand} == {right_operand})"
+
+        else:
+            raise NotImplementedError
+
+    def execute(self) -> str:
+        return self.constraint.accept(self)
+
+
+class TextConstraintsExecutor:
+    def __init__(
+        self,
+        constraint: BaseRelationConstraint,
+    ):
+        self.constraint = constraint
+
+    def execute(self) -> str:
+        visitor = TextConstraintsVisitor(self.constraint)
+        return visitor.execute()
