@@ -4,7 +4,7 @@ import pytest
 from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import load_model
 
-from constrained_attacks.attacks.fast_moeva.moeva import Moeva2
+from constrained_attacks.attacks.fast_moeva.moeva import FastMoeva2
 from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
 )
@@ -46,7 +46,7 @@ def test_run(model):
     n_jobs = 10
     model_pipeline[1].set_params(**{"n_jobs": n_jobs})
 
-    attack = Moeva2(
+    attack = FastMoeva2(
         model_pipeline,
         constraints,
         2,
@@ -101,7 +101,7 @@ def test_run_with_history(model, n_batch):
     n_jobs = 10
     model_pipeline[1].set_params(**{"n_jobs": n_jobs})
 
-    attack = Moeva2(
+    attack = FastMoeva2(
         model_pipeline,
         constraints,
         2,
@@ -159,7 +159,7 @@ def test_run_without_history(model, n_batch):
     n_jobs = 10
     model_pipeline[1].set_params(**{"n_jobs": n_jobs})
 
-    attack = Moeva2(
+    attack = FastMoeva2(
         model_pipeline,
         constraints,
         2,
@@ -201,7 +201,7 @@ def test_generating():
         steps=[("preprocessing", preprocessing_pipeline), ("model", model)]
     )
 
-    attack = Moeva2(
+    attack = FastMoeva2(
         model_pipeline,
         constraints,
         2,

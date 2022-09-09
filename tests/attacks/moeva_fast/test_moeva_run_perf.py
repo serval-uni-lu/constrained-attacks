@@ -6,7 +6,7 @@ import pytest
 from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import load_model
 
-from constrained_attacks.attacks.fast_moeva.moeva import Moeva2
+from constrained_attacks.attacks.fast_moeva.moeva import FastMoeva2
 from constrained_attacks.attacks.moeva.moeva import Moeva2 as SlowMoeva
 from constrained_attacks.classifier.tensorflow_classifier import (
     TensorflowClassifier,
@@ -45,7 +45,7 @@ def test_run_perf(model):
 
     # FAST
     model_pipeline[1].set_params(**{"n_jobs": n_jobs})
-    attack = Moeva2(
+    attack = FastMoeva2(
         model_pipeline,
         constraints,
         2,

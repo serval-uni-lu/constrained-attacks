@@ -18,7 +18,7 @@ from constrained_attacks.constraints.constraints import (
 random.sample(range(100), 10)
 
 
-class Moeva2:
+class FastMoeva2:
     def __init__(
         self,
         classifier,
