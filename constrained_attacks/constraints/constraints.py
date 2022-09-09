@@ -24,8 +24,22 @@ class Constraints:
 def get_constraints_from_file(
     features_path: str,
     relation_constraints: List[BaseRelationConstraint],
+    col_filter=None,
 ) -> Constraints:
     features = pd.read_csv(features_path)
+    return get_constraints_from_metadata(
+        features, relation_constraints, col_filter
+    )
+
+
+def get_constraints_from_metadata(
+    metadata: pd.DataFrame,
+    relation_constraints: List[BaseRelationConstraint],
+    col_filter=None,
+) -> Constraints:
+    features = metadata
+    if col_filter is not None:
+        features = features[features["feature"].isin(col_filter)]
     feature_type = features["type"].to_numpy()
     mutable_mask = features["mutable"].to_numpy()
     feature_min = features["min"].to_numpy()
