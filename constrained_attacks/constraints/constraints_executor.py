@@ -10,10 +10,13 @@ from constrained_attacks.constraints.relation_constraint import (
     BaseRelationConstraint,
     Constant,
     ConstraintsNode,
+    Count,
     EqualConstraint,
     Feature,
     LessConstraint,
     LessEqualConstraint,
+    Log,
+    ManySum,
     MathOperation,
     OrConstraint,
     SafeDivision,
@@ -61,6 +64,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
         "*": lambda left, right: left * right,
         "/": lambda left, right: left / right,
         "**": lambda left, right: left**right,
+        "%": lambda left, right: left % right,
     }
 
     def __init__(
@@ -114,6 +118,21 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
                 where=divisor != 0,
             )
 
+        elif isinstance(constraint_node, Log):
+            operand = constraint_node.operand.accept(self)
+            if constraint_node.safe_value is not None:
+                safe_value = constraint_node.safe_value.accept(self)
+                return np.log(
+                    operand,
+                    out=np.full_like(operand, fill_value=safe_value),
+                    where=(operand > 0),
+                )
+            return np.log(operand)
+
+        elif isinstance(constraint_node, ManySum):
+            operands = [e.accept(self) for e in constraint_node.operands]
+            return np.sum(operands, axis=0)
+
         # ------------ Constraints
 
         # ------ Binary
@@ -142,6 +161,20 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
             return np.abs(left_operand - right_operand)
+
+        # ------ Extension
+
+        elif isinstance(constraint_node, Count):
+            operands = [e.accept(self) for e in constraint_node.operands]
+            if constraint_node.inverse:
+                operands = np.array(
+                    [(op != 0).astype(float) for op in operands]
+                )
+            else:
+                operands = np.array(
+                    [(op == 0).astype(float) for op in operands]
+                )
+            return np.sum(operands, axis=0)
 
         else:
             raise NotImplementedError

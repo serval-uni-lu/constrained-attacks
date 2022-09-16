@@ -35,6 +35,9 @@ class Value(ConstraintsNode):
     def __pow__(self, power: Value, modulo=None) -> MathOperation:
         return MathOperation("**", self, power)
 
+    def __mod__(self, other: Value) -> MathOperation:
+        return MathOperation("%", self, other)
+
     def __lt__(self, other: Value) -> BaseRelationConstraint:
         return LessConstraint(self, other)
 
@@ -73,6 +76,17 @@ class SafeDivision(Value):
         self.dividend = dividend
         self.divisor = divisor
         self.fill_value = fill_value
+
+
+class ManySum(Value):
+    def __init__(self, operands):
+        self.operands = operands
+
+
+class Log(Value):
+    def __init__(self, operand: Value, safe_value: Value = None):
+        self.operand = operand
+        self.safe_value = safe_value
 
 
 # ------------ Constraints
@@ -120,3 +134,13 @@ class EqualConstraint(BaseRelationConstraint):
     def __init__(self, left_operand: Value, right_operand: Value):
         self.left_operand = left_operand
         self.right_operand = right_operand
+
+
+# ----- Extension
+
+
+class Count(Value):
+    def __init__(self, operands: List[BaseRelationConstraint], inverse=False):
+        _check_min_operands_length(1, operands)
+        self.operands = operands
+        self.inverse = inverse

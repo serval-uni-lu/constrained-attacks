@@ -13,6 +13,7 @@ from constrained_attacks.constraints.constraints_checker import (
         ("lcld_v2_time", 0.01, 0.001),
         ("ctu_13_neris", 0.0, 0.001),
         ("url", 0.0, 0.0),
+        ("malware", 1e-9, 0.0),
     ],
 )
 def test_constraints(dataset_name, tolerance, input_proportion):

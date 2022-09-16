@@ -10,6 +10,7 @@ from sklearn.preprocessing import LabelEncoder
 
 from constrained_attacks.constraints.constraints import Constraints
 from constrained_attacks.datasets.processing import IdentityTransformer
+from constrained_attacks.utils.autoload import autoload
 
 MLC_DATA_PATH = "./data/mlc/"
 
@@ -106,7 +107,7 @@ class FileDataset(Dataset, ABC):
 
     def _load_data(self):
         if self.data is None:
-            self.data = pd.read_csv(self.data_path)
+            self.data = autoload(self.data_path)
 
     def get_metadata(self):
         if self.metadata is None:
