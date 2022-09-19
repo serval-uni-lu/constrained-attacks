@@ -1,10 +1,9 @@
 from typing import List, Union
 
-from datasets.malware_dataset import MalwareDataset
-
 from constrained_attacks.datasets.core import Dataset
 from constrained_attacks.datasets.ctu_13_neris import Ctu13Neris
 from constrained_attacks.datasets.lcld_v2_dataset import LcldV2TimeDataset
+from constrained_attacks.datasets.malware_dataset import MalwareDataset
 from constrained_attacks.datasets.url_dataset import UrlDataset
 
 datasets = {
