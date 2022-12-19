@@ -5,12 +5,14 @@ from constrained_attacks.datasets.ctu_13_neris import Ctu13Neris
 from constrained_attacks.datasets.lcld_v2_dataset import LcldV2TimeDataset
 from constrained_attacks.datasets.malware_dataset import MalwareDataset
 from constrained_attacks.datasets.url_dataset import UrlDataset
+from constrained_attacks.datasets.wids_dataset import WidsDataset
 
 datasets = {
     "lcld_v2_time": LcldV2TimeDataset(),
     "ctu_13_neris": Ctu13Neris(),
     "url": UrlDataset(),
     "malware": MalwareDataset(),
+    "wids": WidsDataset(),
 }
 
 
