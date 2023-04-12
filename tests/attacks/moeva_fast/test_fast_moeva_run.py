@@ -57,7 +57,7 @@ def test_run(model):
         n_jobs=1,
     )
     out = attack.generate(x_clean, y_clean, batch_size=n_input)
-    assert out.shape == (n_input, attack.n_pop + 3, x_clean.shape[-1])
+    assert out.shape == (n_input, attack.n_pop, x_clean.shape[-1])
 
 
 @pytest.mark.parametrize(
@@ -114,8 +114,8 @@ def test_run_with_history(model, n_batch):
     x_adv, x_history = attack.generate(
         x_clean, y_clean, batch_size=batch_size, return_history=True
     )
-    assert x_adv.shape == (n_input, attack.n_pop + 3, x_clean.shape[-1])
-    assert x_history.shape == (n_input, n_gen + 1, attack.n_pop + 3, 3)
+    assert x_adv.shape == (n_input, attack.n_pop, x_clean.shape[-1])
+    assert x_history.shape == (n_input, n_gen + 1, attack.n_pop, 3)
 
 
 @pytest.mark.parametrize(
@@ -172,7 +172,7 @@ def test_run_without_history(model, n_batch):
     x_adv = attack.generate(
         x_clean, y_clean, batch_size=batch_size, return_history=False
     )
-    assert x_adv.shape == (n_input, attack.n_pop + 3, x_clean.shape[-1])
+    assert x_adv.shape == (n_input, attack.n_pop, x_clean.shape[-1])
 
 
 def test_generating():
