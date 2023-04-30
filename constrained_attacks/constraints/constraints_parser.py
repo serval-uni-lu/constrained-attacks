@@ -270,7 +270,7 @@ class PytorchConstraintsParser:
         self.feature_names = feature_names
         self.process = None
 
-    def translate(self) -> Callable[[], "torch.Tensor"]:
+    def parse(self) -> Callable[[], "torch.Tensor"]:
         if self.process is None:
             visitor = PytorchConstraintsVisitor(
                 self.constraint, self.feature_names
@@ -280,4 +280,4 @@ class PytorchConstraintsParser:
         return self.process
 
     def execute(self, x: "torch.Tensor") -> "torch.Tensor":
-        return self.translate()(x)
+        return self.parse()(x)
