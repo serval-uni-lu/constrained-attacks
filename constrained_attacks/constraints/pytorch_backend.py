@@ -51,19 +51,19 @@ class PytorchBackend(Backend):
         self,
         dividend: torch.Tensor,
         divisor: torch.Tensor,
-        safe_Any: torch.Tensor,
+        safe_value: torch.Tensor,
     ) -> torch.Tensor:
         return torch.where(
             divisor != 0,
             torch.div(dividend, divisor),
-            safe_Any,
+            safe_value,
         )
 
     def log(
-        self, operand: torch.Tensor, safe_Any: Optional[torch.Tensor] = None
+        self, operand: torch.Tensor, safe_value: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        if safe_Any is not None:
-            return torch.where(operand > 0, torch.log(operand), safe_Any)
+        if safe_value is not None:
+            return torch.where(operand > 0, torch.log(operand), safe_value)
         return torch.log(operand)
 
     def many_sum(self, operands: List[torch.Tensor]) -> torch.Tensor:

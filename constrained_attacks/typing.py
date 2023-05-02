@@ -1,0 +1,8 @@
+from typing import Union
+
+import numpy as np
+import numpy.typing as npt
+
+NDANumber = npt.NDArray[Union[np.float_, np.int_]]
+NDFloat = npt.NDArray[np.float_]
+NDInt = npt.NDArray[np.int_]

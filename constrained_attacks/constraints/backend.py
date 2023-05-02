@@ -26,11 +26,13 @@ class Backend:
         pass
 
     @abstractmethod
-    def safe_division(self, dividend: Any, divisor: Any, safe_Any: Any) -> Any:
+    def safe_division(
+        self, dividend: Any, divisor: Any, safe_value: Any
+    ) -> Any:
         pass
 
     @abstractmethod
-    def log(self, operand: Any, safe_Any: Any = None) -> Any:
+    def log(self, operand: Any, safe_value: Any = None) -> Any:
         pass
 
     @abstractmethod
