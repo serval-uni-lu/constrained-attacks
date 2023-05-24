@@ -1,6 +1,6 @@
 import typing
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Callable, Dict, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -21,28 +21,11 @@ from constrained_attacks.constraints.relation_constraint import (
     MathOperation,
     OrConstraint,
     SafeDivision,
+    Value,
 )
+from constrained_attacks.constraints.utils import get_feature_index
 
 EPS: npt.NDArray[Any] = np.array(0.000001)
-
-
-def get_feature_index(
-    feature_names: npt.ArrayLike, feature_id: typing.Union[int, str]
-) -> int:
-    if isinstance(feature_id, str):
-        if feature_names is None:
-            raise ValueError(
-                f"Feature names not provided. "
-                f"Impossible to convert {feature_id} to index"
-            )
-        else:
-            feature_names = np.array(feature_names)
-            index = np.where(feature_names == feature_id)[0]
-            if len(index) > 0:
-                return index[0]
-            raise IndexError(f"{feature_id} is not in {feature_names}")
-    else:
-        return feature_id
 
 
 class ConstraintsVisitor:
@@ -70,7 +53,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
 
     def __init__(
         self,
-        constraint: BaseRelationConstraint,
+        constraint: Union[BaseRelationConstraint, Value],
         x: npt.NDArray[Any],
         feature_names: npt.ArrayLike = None,
     ) -> None:
@@ -92,6 +75,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
             return np.array(constraint_node.constant)
 
         elif isinstance(constraint_node, Feature):
+
             feature_index = get_feature_index(
                 self.feature_names, constraint_node.feature_id
             )
@@ -168,14 +152,11 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
         elif isinstance(constraint_node, Count):
             operands = [e.accept(self) for e in constraint_node.operands]
             if constraint_node.inverse:
-                operands = np.array(
-                    [(op != 0).astype(float) for op in operands]
-                )
+                operands = [(op != 0).astype(float) for op in operands]
             else:
-                operands = np.array(
-                    [(op == 0).astype(float) for op in operands]
-                )
-            return np.sum(operands, axis=0)
+                operands = [(op == 0).astype(float) for op in operands]
+
+            return np.sum(np.array(operands), axis=0)
 
         else:
             raise NotImplementedError
@@ -187,7 +168,7 @@ class NumpyConstraintsVisitor(ConstraintsVisitor):
 class NumpyConstraintsExecutor:
     def __init__(
         self,
-        constraint: BaseRelationConstraint,
+        constraint: Union[BaseRelationConstraint, Value],
         feature_names: npt.ArrayLike = None,
     ):
         self.constraint = constraint
@@ -222,7 +203,9 @@ class TensorFlowConstraintsVisitor(ConstraintsVisitor):
         return tf.zeros(operands[i].shape, dtype=operands[i].dtype)
 
     @staticmethod
-    def str_operator_to_result_f():
+    def str_operator_to_result_f() -> Dict[
+        str, Callable[["tf.Tensor", "tf.Tensor"], "tf.Tensor"]
+    ]:
         import tensorflow as tf
 
         return {
@@ -470,19 +453,15 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             return torch.log(operand)
 
         elif isinstance(constraint_node, ManySum):
-            operands = torch.stack(
-                [e.accept(self) for e in constraint_node.operands]
-            )
-            return torch.sum(operands, dim=0)
+            operands = [e.accept(self) for e in constraint_node.operands]
+            return torch.sum(torch.stack(operands), dim=0)
 
         # ------------ Constraints
 
         # ------ Binary
         elif isinstance(constraint_node, OrConstraint):
-            operands = torch.stack(
-                [e.accept(self) for e in constraint_node.operands]
-            )
-            return torch.min(operands, dim=0).values
+            operands = [e.accept(self) for e in constraint_node.operands]
+            return torch.min(torch.stack(operands), dim=0).values
 
         elif isinstance(constraint_node, AndConstraint):
             operands = [e.accept(self) for e in constraint_node.operands]
@@ -504,7 +483,9 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             left_operand = constraint_node.left_operand.accept(self) + EPS
             right_operand = constraint_node.right_operand.accept(self)
             zeros = self.get_zeros_np([left_operand, right_operand])
-            return torch.max([zeros, (left_operand - right_operand)], dim=0)
+            return torch.max(
+                torch.stack([zeros, (left_operand - right_operand)]), dim=0
+            )
 
         elif isinstance(constraint_node, EqualConstraint):
             left_operand = constraint_node.left_operand.accept(self)
@@ -516,10 +497,10 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
         elif isinstance(constraint_node, Count):
             operands = [e.accept(self) for e in constraint_node.operands]
             if constraint_node.inverse:
-                operands = torch.stack([(op != 0).float() for op in operands])
+                operands = [(op != 0).float() for op in operands]
             else:
-                operands = torch.stack([(op == 0).float() for op in operands])
-            return torch.sum(operands, dim=0)
+                operands = [(op == 0).float() for op in operands]
+            return torch.sum(torch.stack(operands), dim=0)
 
         else:
             raise NotImplementedError

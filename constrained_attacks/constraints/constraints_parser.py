@@ -1,6 +1,6 @@
 import typing
 from abc import abstractmethod
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -22,33 +22,9 @@ from constrained_attacks.constraints.relation_constraint import (
     OrConstraint,
     SafeDivision,
 )
+from constrained_attacks.constraints.utils import get_feature_index
 
 EPS: torch.Tensor = torch.tensor(0.000001)
-
-
-def get_feature_index(
-    feature_names: npt.ArrayLike, feature_id: typing.Union[int, str]
-) -> int:
-
-    if isinstance(feature_id, int):
-        return feature_id
-
-    if isinstance(feature_id, str):
-        if feature_names is None:
-            raise ValueError(
-                f"Feature names not provided. "
-                f"Impossible to convert {feature_id} to index"
-            )
-
-        feature_names = np.array(feature_names)
-        index = np.where(feature_names == feature_id)[0]
-
-        if len(index) <= 0:
-            raise IndexError(f"{feature_id} is not in {feature_names}")
-
-        return index[0]
-
-    raise NotImplementedError
 
 
 class ConstraintsVisitor:
@@ -89,13 +65,16 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
         i = np.argmax([op.ndim for op in operands])
         return torch.zeros(operands[i].shape, dtype=operands[i].dtype)
 
-    def visit(self, constraint_node: ConstraintsNode) -> "torch.Tensor":
+    def visit(
+        self, constraint_node: ConstraintsNode
+    ) -> Callable[[torch.Tensor], torch.Tensor]:
 
         # ------------ Values
         if isinstance(constraint_node, Constant):
+            constant = constraint_node.constant
 
-            def process(x):
-                return torch.tensor([constraint_node.constant])
+            def process(x: torch.Tensor) -> torch.Tensor:
+                return torch.tensor([constant])
 
             return process
 
@@ -104,7 +83,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
                 self.feature_names, constraint_node.feature_id
             )
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return x[:, feature_index]
 
             return process
@@ -119,7 +98,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
 
             operator_function = self.str_operator_to_result[operator]
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return operator_function(left_operand(x), right_operand(x))
 
             return process
@@ -129,7 +108,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             divisor = constraint_node.divisor.accept(self)
             fill_value = constraint_node.fill_value.accept(self)
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.where(
                     divisor(x) != 0,
                     torch.div(dividend(x), divisor(x)),
@@ -143,14 +122,14 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             if constraint_node.safe_value is not None:
                 safe_value = constraint_node.safe_value.accept(self)
 
-                def process(x):
+                def process(x: torch.Tensor) -> torch.Tensor:
                     return torch.where(
                         operand(x) > 0, torch.log(operand(x)), safe_value(x)
                     )
 
                 return process
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.log(operand(x))
 
             return process
@@ -158,7 +137,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
         elif isinstance(constraint_node, ManySum):
             operands = [e.accept(self) for e in constraint_node.operands]
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.sum(
                     torch.stack([op(x) for op in operands]), dim=0
                 )
@@ -171,7 +150,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
         elif isinstance(constraint_node, OrConstraint):
             operands = [e.accept(self) for e in constraint_node.operands]
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.min(
                     torch.stack([op(x) for op in operands]), dim=0
                 ).values
@@ -181,7 +160,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
         elif isinstance(constraint_node, AndConstraint):
             operands = [e.accept(self) for e in constraint_node.operands]
 
-            def process(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.sum(
                     torch.stack([op(x) for op in operands]), dim=0
                 )
@@ -193,7 +172,7 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
 
-            def proccess(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 zeros = self.get_zeros_torch(
                     [left_operand(x), right_operand(x)]
                 )
@@ -203,13 +182,13 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
                 )[0]
                 return bound_zero
 
-            return proccess
+            return process
 
         elif isinstance(constraint_node, LessConstraint):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
 
-            def proccess(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 zeros = self.get_zeros_torch(
                     [left_operand(x), right_operand(x)]
                 )
@@ -219,16 +198,16 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
                 )[0]
                 return bound_zero
 
-            return proccess
+            return process
 
         elif isinstance(constraint_node, EqualConstraint):
             left_operand = constraint_node.left_operand.accept(self)
             right_operand = constraint_node.right_operand.accept(self)
 
-            def proccess(x):
+            def process(x: torch.Tensor) -> torch.Tensor:
                 return torch.abs(left_operand(x) - right_operand(x))
 
-            return proccess
+            return process
 
         # ------ Extension
 
@@ -236,27 +215,27 @@ class PytorchConstraintsVisitor(ConstraintsVisitor):
             operands = [e.accept(self) for e in constraint_node.operands]
             if constraint_node.inverse:
 
-                def process(x):
+                def process(x: torch.Tensor) -> torch.Tensor:
                     return torch.sum(
                         torch.stack([(op(x) != 0).float() for op in operands]),
                         dim=0,
                     )
 
-                return proccess
+                return process
             else:
 
-                def process(x):
+                def process(x: torch.Tensor) -> torch.Tensor:
                     return torch.sum(
                         torch.stack([(op(x) == 0).float() for op in operands]),
                         dim=0,
                     )
 
-                return proccess
+                return process
 
         else:
             raise NotImplementedError
 
-    def execute(self) -> "torch.Tensor":
+    def execute(self) -> Callable[[torch.Tensor], torch.Tensor]:
         return self.constraint.accept(self)
 
 
@@ -268,9 +247,9 @@ class PytorchConstraintsParser:
     ):
         self.constraint = constraint
         self.feature_names = feature_names
-        self.process = None
+        self.process: Optional[Callable[[torch.Tensor], torch.Tensor]] = None
 
-    def parse(self) -> Callable[[], "torch.Tensor"]:
+    def parse(self) -> Callable[[torch.Tensor], torch.Tensor]:
         if self.process is None:
             visitor = PytorchConstraintsVisitor(
                 self.constraint, self.feature_names

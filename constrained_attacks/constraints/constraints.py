@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -9,6 +9,7 @@ import pandas as pd
 from constrained_attacks.constraints.relation_constraint import (
     BaseRelationConstraint,
 )
+from constrained_attacks.typing import NDFloat
 
 
 @dataclass
@@ -18,13 +19,13 @@ class Constraints:
     lower_bounds: npt.NDArray[Any]
     upper_bounds: npt.NDArray[Any]
     relation_constraints: List[BaseRelationConstraint]
-    feature_names: List[str] = None
+    feature_names: Optional[List[str]] = None
 
 
 def get_constraints_from_file(
     features_path: str,
     relation_constraints: List[BaseRelationConstraint],
-    col_filter=None,
+    col_filter: Optional[List[str]] = None,
 ) -> Constraints:
     features = pd.read_csv(features_path)
     return get_constraints_from_metadata(
@@ -35,7 +36,7 @@ def get_constraints_from_file(
 def get_constraints_from_metadata(
     metadata: pd.DataFrame,
     relation_constraints: List[BaseRelationConstraint],
-    col_filter=None,
+    col_filter: Optional[List[str]] = None,
 ) -> Constraints:
     features = metadata
     if col_filter is not None:
@@ -57,7 +58,7 @@ def get_constraints_from_metadata(
 
 def get_feature_min_max(
     constraints: Constraints, x: npt.NDArray[Any]
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[NDFloat, NDFloat]:
 
     # Todo: Implement a faster method than this recursive solution
     if (x is not None) and (x.ndim == 2):
@@ -100,7 +101,9 @@ def get_feature_min_max(
     return feature_min, feature_max
 
 
-def fix_feature_types(constraints: Constraints, x_clean, x_adv):
+def fix_feature_types(
+    constraints: Constraints, x_clean: NDFloat, x_adv: NDFloat
+) -> NDFloat:
     int_type_mask = constraints.feature_types != "real"
     if int_type_mask.sum() > 0:
         x_adv = x_adv.copy()

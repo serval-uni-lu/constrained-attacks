@@ -1,16 +1,17 @@
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
 from constrained_attacks.constraints.constraints_executor import (
     NumpyConstraintsExecutor,
-    get_feature_index,
 )
 from constrained_attacks.constraints.relation_constraint import (
     BaseRelationConstraint,
     EqualConstraint,
     Feature,
 )
+from constrained_attacks.constraints.utils import get_feature_index
+from constrained_attacks.typing import NDFloat
 
 
 class ConstraintsFixer:
@@ -18,7 +19,7 @@ class ConstraintsFixer:
         self,
         guard_constraints: List[BaseRelationConstraint],
         fix_constraints: List[EqualConstraint],
-        feature_names=None,
+        feature_names: Optional[List[str]] = None,
     ):
         self.guard_constraints = guard_constraints
         self.fix_constraints = fix_constraints
@@ -32,11 +33,16 @@ class ConstraintsFixer:
                         "Left operand of fix constraints must be a Feature."
                     )
 
-    def fix(self, x):
+    def fix(self, x: NDFloat) -> NDFloat:
         x = x.copy()
         for i in range(len(self.fix_constraints)):
             guard_c = self.guard_constraints[i]
             fix_c = self.fix_constraints[i]
+
+            if not isinstance(fix_c.left_operand, Feature):
+                raise ValueError(
+                    "Left operand of fix constraints must be a Feature."
+                )
 
             # Index of inputs that shall be updated
             # according the guard constraints,
@@ -64,4 +70,4 @@ class ConstraintsFixer:
 
             x[to_update, index] = new_value
 
-            return x
+        return x

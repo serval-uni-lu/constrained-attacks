@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing
-from typing import List, Union
+from typing import Any, List, Union
 
 
 def _check_min_operands_length(
@@ -20,8 +20,13 @@ class ConstraintsNode:
 
 # ------------ Values
 class Value(ConstraintsNode):
-    def __add__(self, other: Value) -> MathOperation:
-        return MathOperation("+", self, other)
+    def __add__(self, other: Value) -> ManySum:
+        if isinstance(self, ManySum):
+            return ManySum(self.operands + [other])
+        elif isinstance(other, ManySum):
+            return ManySum([self] + other.operands)
+        else:
+            return ManySum([self, other])
 
     def __sub__(self, other: Value) -> MathOperation:
         return MathOperation("-", self, other)
@@ -32,7 +37,7 @@ class Value(ConstraintsNode):
     def __truediv__(self, other: Value) -> MathOperation:
         return MathOperation("/", self, other)
 
-    def __pow__(self, power: Value, modulo=None) -> MathOperation:
+    def __pow__(self, power: Value, modulo: Any = None) -> MathOperation:
         return MathOperation("**", self, power)
 
     def __mod__(self, other: Value) -> MathOperation:
@@ -79,7 +84,7 @@ class SafeDivision(Value):
 
 
 class ManySum(Value):
-    def __init__(self, operands):
+    def __init__(self, operands: List[Value]) -> None:
         self.operands = operands
 
 
@@ -140,7 +145,9 @@ class EqualConstraint(BaseRelationConstraint):
 
 
 class Count(Value):
-    def __init__(self, operands: List[BaseRelationConstraint], inverse=False):
+    def __init__(
+        self, operands: List[BaseRelationConstraint], inverse: bool = False
+    ) -> None:
         _check_min_operands_length(1, operands)
         self.operands = operands
         self.inverse = inverse
