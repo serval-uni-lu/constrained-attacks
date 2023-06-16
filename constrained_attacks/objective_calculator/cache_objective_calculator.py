@@ -57,8 +57,8 @@ class ObjectiveCalculator:
         """Calculate the objectives satisfaction according to a model
         and a set of constraints.
         This version is using cache, therefore you should pass the
-        parameters recompute=True whenever possible if your input
-        change.
+        parameters recompute=False whenever your input are similar to
+        previous call to avoid unnecessary computation.
 
 
         Parameters
