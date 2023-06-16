@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 from mlc.constraints.constraints import Constraints
@@ -46,7 +46,6 @@ class ObjectiveCalculator:
         thresholds: Dict[str, float],
         norm: str = "inf",
         fun_distance_preprocess: Callable[[NDNumber], NDNumber] = lambda x: x,
-        n_jobs: int = 1,
     ) -> None:
         """Calculate the objectives satisfaction according to a model
         and a set of constraints.
@@ -70,10 +69,6 @@ class ObjectiveCalculator:
             function used to preprocess input before the distance metric
             calculation, typically the n-1 first steps of an n step
             classification Pipeline, by default lambdax:x.
-        n_jobs : int, optional
-            Number of parallel jobs for returning adversarial examples,
-            we recommand using the classifier parallel capabilities
-            instead, by default 1.
         """
         self.classifier = classifier
         self.constraints = constraints
@@ -90,14 +85,13 @@ class ObjectiveCalculator:
         #         ]
         #     )
 
-        if thresholds["misclassification"] is not None:
+        if thresholds.get("misclassification") is not None:
             raise NotImplementedError(
                 "misclassification threshold is not yet implemented in this version."
             )
 
         if "constraints" not in self.thresholds:
             self.thresholds["constraints"] = 0.0
-        self.n_jobs = n_jobs
         self.objectives_eval: Optional[ObjectiveMeasure] = None
         self.objectives_respected: Optional[ObjectiveRespected] = None
 
@@ -216,7 +210,7 @@ class ObjectiveCalculator:
             )
         return self.objectives_respected
 
-    def get_success_rate(
+    def get_objectives_respected_clean_mask(
         self,
         x_clean: NDNumber,
         y_clean: NDInt,
@@ -226,7 +220,6 @@ class ObjectiveCalculator:
         objectives_respected = self.get_objectives_respected(
             x_clean, y_clean, x_adv, recompute
         )
-
         at_least_one = ObjectiveRespected(
             misclassification=np.max(
                 objectives_respected.misclassification, axis=1
@@ -238,7 +231,19 @@ class ObjectiveCalculator:
             d_and_c=np.max(objectives_respected.d_and_c, axis=1),
             mdc=np.max(objectives_respected.mdc, axis=1),
         )
+        return at_least_one
 
+    def get_success_rate(
+        self,
+        x_clean: NDNumber,
+        y_clean: NDInt,
+        x_adv: NDNumber,
+        recompute: bool = True,
+    ) -> ObjectiveRespected:
+
+        at_least_one = self.get_objectives_respected_clean_mask(
+            x_clean, y_clean, x_adv, recompute
+        )
         success_rate = [np.mean(e) for e in at_least_one.__dict__.values()]
 
         return ObjectiveRespected(*success_rate)
@@ -266,6 +271,23 @@ class ObjectiveCalculator:
 
         return x_adv[indexes]
 
+    def get_unsuccessful_attacks_clean_indexes(
+        self,
+        x_clean: NDNumber,
+        y_clean: NDInt,
+        x_adv: NDNumber,
+        recompute: bool = True,
+    ) -> NDInt:
+
+        index_not_ok = np.arange(x_clean.shape[0])
+        index_not_ok = index_not_ok[
+            ~self.get_objectives_respected_clean_mask(
+                x_clean, y_clean, x_adv, recompute
+            ).mdc
+        ]
+
+        return index_not_ok
+
     def get_successful_attacks_indexes(
         self,
         x_clean: NDNumber,
@@ -275,7 +297,7 @@ class ObjectiveCalculator:
         order: str = "asc",
         max_inputs: int = -1,
         recompute: bool = True,
-    ) -> NDInt:
+    ) -> Tuple[NDInt, ...]:
         if max_inputs == -1:
             max_inputs = x_adv.shape[1]
 
@@ -291,13 +313,13 @@ class ObjectiveCalculator:
         if order == "asc":
             metric = -metric
 
-        indinces = select_k_best(
+        indices = select_k_best(
             metric,
             objectives_mdc,
             max_inputs,
         )
 
-        return indinces
+        return indices
 
     def reset_objectives_respected(self) -> None:
         self.objectives_respected = None
@@ -306,21 +328,26 @@ class ObjectiveCalculator:
         self.objectives_eval = None
 
 
-def select_k_best(metric: NDNumber, filter: NDBool, k: int) -> NDInt:
+def select_k_best(
+    metric: NDNumber, filter_ok: NDBool, k: int
+) -> Tuple[NDInt, ...]:
     # Find the indices of valid elements based on the filter
-    valid_indices = np.where(filter)
 
-    # Sort the valid elements along the B dimension based on the metric in ascending order
-    sorted_indices = np.argsort(metric[valid_indices], axis=1)
+    # for simulation
+    # filter_ok = np.random.rand(*filter_ok.shape) < 0.5
+    # metric = np.column_stack((metric, metric - 1, metric - 2))
+    # filter_ok = np.column_stack((filter_ok, filter_ok - 1, filter_ok - 2))
 
-    # Select the top k indices for each A dimension
-    top_k_indices = sorted_indices[:, :k]
+    filter_best = np.ones(metric.shape, dtype=np.bool_)
 
-    # Create an index array based on valid indices
-    a_indices = valid_indices[0][:, np.newaxis]
-    b_indices = valid_indices[1][top_k_indices]
+    # Replace invalid elements with infinity
+    filtered_metric = np.where(filter_ok, metric, np.inf)
 
-    # Combine the A and B indices
-    indices = np.concatenate((a_indices, b_indices), axis=1)
+    # Find the indices of the k smallest values for each B dimension
+    top_k_indices = np.argpartition(filtered_metric, k - 1, axis=1)[:, :k]
 
-    return indices
+    filter_best[top_k_indices] = False
+
+    out = np.where(filter_best * filter_ok)
+
+    return out
