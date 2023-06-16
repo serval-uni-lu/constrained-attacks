@@ -38,12 +38,6 @@ class ObjectiveRespected:
         return ObjectiveRespected(*[e[key] for e in self.__dict__.values()])
 
 
-@dataclass
-class Person:
-    name: str
-    age: int
-
-
 class ObjectiveCalculator:
     def __init__(
         self,
