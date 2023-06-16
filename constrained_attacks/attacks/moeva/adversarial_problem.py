@@ -1,34 +1,32 @@
+from typing import Optional, Union
+
 import numpy as np
+from mlc.constraints.constraints import Constraints, get_feature_min_max
+from mlc.constraints.constraints_executor import NumpyConstraintsExecutor
+from mlc.constraints.relation_constraint import AndConstraint
 from pymoo.core.problem import Problem
 
 from constrained_attacks.classifier.classifier import Classifier
-from constrained_attacks.constraints.constraints import (
-    Constraints,
-    get_feature_min_max,
-)
-from constrained_attacks.constraints.constraints_executor import (
-    NumpyConstraintsExecutor,
-)
-from constrained_attacks.constraints.relation_constraint import AndConstraint
+from constrained_attacks.typing import NDNumber
 from constrained_attacks.utils import compute_distance
 
 NB_OBJECTIVES = 3
 
 
-def get_nb_objectives():
+def get_nb_objectives() -> int:
     return NB_OBJECTIVES
 
 
 class AdversarialProblem(Problem):
     def __init__(
         self,
-        x_clean: np.ndarray,
+        x_clean: NDNumber,
         y_clean: int,
         classifier: Classifier,
         constraints: Constraints,
         fun_distance_preprocess=lambda x: x,
-        norm=None,
-    ):
+        norm: Optional[Union[str, int]] = None,
+    ) -> None:
         # Parameters
         self.x_clean = x_clean
         self.y_clean = y_clean

@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 from joblib import Parallel, delayed
+from mlc.constraints.constraints import Constraints
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.rnsga3 import RNSGA3
 from pymoo.factory import (
@@ -20,7 +21,6 @@ from tqdm import tqdm
 
 from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
 from constrained_attacks.attacks.moeva.operators import InitialStateSampling
-from constrained_attacks.constraints.constraints import Constraints
 from constrained_attacks.utils import cut_in_batch
 
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
