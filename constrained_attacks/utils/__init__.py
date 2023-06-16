@@ -1,9 +1,14 @@
+from typing import Any, List, Optional
+
 import numpy as np
-from constrained_attacks.typing import NDNumber
 import pandas as pd
 import torch
+from numpy.typing import NDArray
 
-def mutate(x_original, x_mutation):
+from constrained_attacks.typing import NDNumber
+
+
+def mutate(x_original: NDNumber, x_mutation: NDNumber) -> None:
 
     if x_original.shape[:-1] != x_mutation.shape[:-1]:
         raise ValueError(
@@ -13,7 +18,7 @@ def mutate(x_original, x_mutation):
         )
 
 
-def compute_distance(x_1, x_2, norm):
+def compute_distance(x_1: NDNumber, x_2: NDNumber, norm: Any) -> NDNumber:
     if norm in ["inf", np.inf, "Linf", "linf"]:
         distance = np.linalg.norm(x_1 - x_2, ord=np.inf, axis=-1)
     elif norm in ["2", 2, "L2", "l2"]:
@@ -24,7 +29,11 @@ def compute_distance(x_1, x_2, norm):
     return distance
 
 
-def cut_in_batch(arr, n_desired_batch=1, batch_size=None):
+def cut_in_batch(
+    arr: NDArray[Any],
+    n_desired_batch: int = 1,
+    batch_size: Optional[int] = None,
+) -> List[NDArray[Any]]:
 
     if batch_size is None:
         n_batch = min(n_desired_batch, len(arr))
@@ -35,7 +44,9 @@ def cut_in_batch(arr, n_desired_batch=1, batch_size=None):
     return [arr[batch_i] for batch_i in batches_i]
 
 
-def fix_types(x_clean: torch.Tensor, x_adv: torch.Tensor, types: pd.Series) -> torch.Tensor:
+def respect_types(
+    x_clean: torch.Tensor, x_adv: torch.Tensor, types: pd.Series
+) -> torch.Tensor:
 
     x_adv = x_adv.clone()
     int_indices = np.where(types == "int")[0]
@@ -50,11 +61,11 @@ def fix_types(x_clean: torch.Tensor, x_adv: torch.Tensor, types: pd.Series) -> t
 
     int_perturbation_fixed = torch.fix(int_perturbation)
 
-    x_adv[:, :, int_indices] = x_clean[:, :, int_indices] + int_perturbation_fixed
+    x_adv[:, :, int_indices] = (
+        x_clean[:, :, int_indices] + int_perturbation_fixed
+    )
 
     if x_adv_ndim == 2:
         x_adv = x_adv[:, 0, :]
 
     return x_adv
-
-
