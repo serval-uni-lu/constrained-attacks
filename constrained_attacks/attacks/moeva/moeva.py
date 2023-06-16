@@ -1,5 +1,6 @@
 import os
 import warnings
+from typing import Any
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -250,3 +251,8 @@ class Moeva2:
             return x_adv, histories
         else:
             return np.concatenate(out)
+
+    def __call__(
+        self, x: np.ndarray, y, batch_size=None, *args, **kwargs
+    ) -> Any:
+        return self.generate(x, y, batch_size)
