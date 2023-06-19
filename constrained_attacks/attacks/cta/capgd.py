@@ -108,7 +108,7 @@ class CAPGD(Attack):
 
         _, adv_images = self.perturb(images, labels, cheap=True)
 
-        return adv_images
+        return self.scaler.inverse_transform(adv_images)
 
     def check_oscillation(self, x, j, k, y5, k3=0.75):
         t = np.zeros(x.shape[1])
@@ -266,7 +266,7 @@ class CAPGD(Attack):
         n_reduced = 0
 
         for i in range(self.steps):
-            ### gradient step
+            # -- gradient step
             with torch.no_grad():
                 x_adv = x_adv.detach()
                 grad2 = x_adv - x_adv_old
@@ -353,7 +353,7 @@ class CAPGD(Attack):
 
                 x_adv = x_adv_1 + 0.0
 
-            ### get gradient
+            # -- get gradient
             x_adv.requires_grad_()
             grad = torch.zeros_like(x)
             for _ in range(self.eot_iter):
@@ -390,7 +390,7 @@ class CAPGD(Attack):
                     )
                 )
 
-            ### check step size
+            # -- check step size
             with torch.no_grad():
                 y1 = loss_indiv.detach().clone()
                 loss_steps[i] = y1.cpu() + 0
