@@ -150,9 +150,7 @@ class CAPGD(Attack):
 
         if self.norm == "Linf":
             t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
-            x_adv = x.detach() + torch.Tensor(
-                self.constraints.mutable_features.astype(float)
-            ) * (
+            x_adv = x.detach() + self.mutable_mask * (
                 self.eps
                 * torch.ones(
                     [
@@ -471,7 +469,7 @@ class CAPGD(Attack):
                         )
 
                         ind_to_fool = self.objective_calculator.get_unsuccessful_attacks_clean_indexes(
-                            x_clean=x_clean,
+                            x_clean=x_clean.cpu().numpy(),
                             y_clean=y_in.cpu().numpy(),
                             x_adv=x_adv_for_ind.clone()
                             .detach()
