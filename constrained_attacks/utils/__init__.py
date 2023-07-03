@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -44,7 +45,7 @@ def cut_in_batch(
     return [arr[batch_i] for batch_i in batches_i]
 
 
-def respect_types(
+def fix_types(
     x_clean: torch.Tensor, x_adv: torch.Tensor, types: pd.Series
 ) -> torch.Tensor:
 
@@ -64,6 +65,34 @@ def respect_types(
     x_adv[:, :, int_indices] = (
         x_clean[:, :, int_indices] + int_perturbation_fixed
     )
+
+    cat_indices = np.where(types == "cat")[0]
+    x_adv[:, :, cat_indices] = torch.round(x_adv[:, :, cat_indices])
+
+    if x_adv_ndim == 2:
+        x_adv = x_adv[:, 0, :]
+
+    return x_adv
+
+def fix_immutable(
+    x_clean: torch.Tensor, x_adv: torch.Tensor, mutable: pd.Series
+) -> torch.Tensor:
+
+    x_adv = x_adv.clone()
+    immutable_indices = np.where(~mutable)[0]
+    x_adv_ndim = x_adv.ndim
+
+    if x_clean.ndim == 2:
+        x_clean = x_clean.unsqueeze(1)
+    if x_adv_ndim == 2:
+        x_adv = x_adv.unsqueeze(1)
+
+    if not torch.isclose(x_clean[:, :, immutable_indices], x_adv[:, :, immutable_indices]).all():
+        warnings.warn("Mutable indices are not equal nor close.")
+        print("Mutable indices are not equal")
+        print("Fixing mutable indices")
+        
+    x_adv[:, :, immutable_indices] = x_clean[:, :, immutable_indices]
 
     if x_adv_ndim == 2:
         x_adv = x_adv[:, 0, :]
