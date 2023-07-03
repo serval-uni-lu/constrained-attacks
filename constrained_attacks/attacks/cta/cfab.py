@@ -16,6 +16,8 @@ from collections import abc as container_abcs
 import torch
 import torch.nn.functional as F
 from torchattacks.attack import Attack
+from mlc.constraints.constraints import Constraints
+from mlc.transformers.tab_scaler import TabScaler
 
 
 class CFAB(Attack):
@@ -53,6 +55,8 @@ class CFAB(Attack):
 
     def __init__(
         self,
+        constraints: Constraints,
+        scaler: TabScaler,
         model,
         norm="Linf",
         eps=8 / 255,
@@ -82,14 +86,20 @@ class CFAB(Attack):
         self.n_target_classes = n_classes - 1
         self.supported_mode = ["default", "targeted"]
 
+        self.constraints = constraints
+        self.scaler = scaler
+
     def forward(self, images, labels):
         r"""
         Overridden.
         """
-
+        images = self.scaler.transform(images)
         images = images.clone().detach().to(self.device)
+        # if labels is not None:
         labels = labels.clone().detach().to(self.device)
         adv_images = self.perturb(images, labels)
+
+        self.scaler.inverse_transform(adv_images)
 
         return adv_images
 
