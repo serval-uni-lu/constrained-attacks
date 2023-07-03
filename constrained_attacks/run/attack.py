@@ -6,6 +6,12 @@ from mlc.metrics.compute import compute_metric
 from mlc.metrics.metric_factory import create_metric
 from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
+from mlc.constraints.constraints_fixer import ConstraintsFixer
+from mlc.constraints.relation_constraint import (
+    BaseRelationConstraint,
+    EqualConstraint,
+    Feature,
+)
 import torch
 import torch.nn as nn
 
@@ -20,42 +26,43 @@ from constrained_attacks.objective_calculator.cache_objective_calculator import 
     ObjectiveCalculator,
 )
 
-from constrained_attacks.utils import fix_types
+from constrained_attacks.utils import fix_immutable, fix_types
 
 
 def run() -> None:
 
-    dataset = load_dataset("url")
+    # Load data
+    dataset = load_dataset("lcld_201317_ds_time")
     x, y = dataset.get_x_y()
     splits = dataset.get_splits()
-
-    x_train = x.iloc[splits["train"]]
-    y_train = y[splits["train"]]
-    x_test = x.iloc[splits["test"]]
-    y_test = y[splits["test"]]
-    x_val = x.iloc[splits["val"]]
-    y_val = y[splits["val"]]
+    x_test = x.iloc[splits["test"]][:1000]
+    y_test = y[splits["test"]][:1000]
     metadata = dataset.get_metadata(only_x=True)
+
+    # Scaler
     scaler = TabScaler(num_scaler="min_max", one_hot_encode=True)
-    scaler.fit(x.values, x_type=metadata["type"])
+    scaler.fit(
+        torch.tensor(x.values, dtype=torch.float32), x_type=metadata["type"]
+    )
 
     # Load model
     model_class = load_model("torchrln")
-    save_path = "../mlc/data/models/url_torchrln.model"
-    model = model_class.load_class(save_path, x_metadata=metadata)
+    save_path = "../mlc/data/models/lcld_torchrln.model"
+    model = model_class.load_class(
+        save_path, x_metadata=metadata, scaler=scaler
+    )
+
+    # Verify model
     metric = create_metric("auc")
     auc = compute_metric(
         model,
         metric,
-        scaler.transform(x_test.values),
+        x_test.values,
         np.array([1 - y_test, y_test]).T,
     )
     print("Test AUC: ", auc)
-
     metric = create_metric("accuracy")
-    acc = compute_metric(
-        model, metric, scaler.transform(x_test.values), y_test
-    )
+    acc = compute_metric(model, metric, x_test.values, y_test)
     print("Test acc: ", acc)
 
     # Constraints
@@ -70,6 +77,8 @@ def run() -> None:
     constraints_ok = (constraints_val <= 0).float().mean()
     print(f"Constraints ok: {constraints_ok*100:.2f}%")
 
+    print("--------- End of verification ---------")
+
     # Attack
 
     model_attack = nn.Sequential(
@@ -78,24 +87,24 @@ def run() -> None:
 
     constraints_attack = dataset.get_constraints()
     # constraints_attack.relation_constraints = None
-    EPS = 8/255
+    EPS = 8 / 255 * 1
     attack = CAPGD(
         constraints_attack,
         scaler,
         model_attack,
-        lambda x: model.predict_proba(scaler.transform(x)),
+        model.predict_proba,
         verbose=True,
         steps=10,
         n_restarts=1,
-        eps=EPS - EPS/100,
-        loss="ce"
+        eps=EPS - EPS / 100,
+        loss="ce",
     )
 
     adv = attack(
         torch.Tensor(x_test.values),
         torch.tensor(y_test, dtype=torch.long),
     )
-    adv = scaler.inverse_transform(adv)
+    # adv = scaler.inverse_transform(adv)
     # adv = fix_types(torch.Tensor(x_test.values), adv, metadata["type"])
 
     constraints_val = constraints_executor.execute(adv)
@@ -104,14 +113,14 @@ def run() -> None:
 
     model.device = "cpu"
     model.to_device()
-    
+
     objective_calculator = ObjectiveCalculator(
-        classifier=lambda x: model.predict_proba(scaler.transform(x)),
+        classifier=model.predict_proba,
         constraints=constraints,
         thresholds={
             # "misclassification": 0.5,
             "distance": EPS,
-            "constraints": 0.0,
+            "constraints": 1.0,
         },
         fun_distance_preprocess=scaler.transform,
     )
@@ -122,18 +131,40 @@ def run() -> None:
         )
     )
     print("After fix")
+
+    constraints_to_fix = [
+        c
+        for c in constraints.relation_constraints
+        if (
+            isinstance(c, EqualConstraint)
+            and isinstance(c.left_operand, Feature)
+        )
+    ]
+
+    constraints_fixer = ConstraintsFixer(
+        guard_constraints=constraints_to_fix,
+        fix_constraints=constraints_to_fix,
+        feature_names=constraints.feature_names,
+    )
+    
+
+    x_adv = fix_types(torch.Tensor(x_test.values), adv, metadata["type"])
+    x_adv = fix_immutable(
+        torch.Tensor(x_test.values), x_adv, metadata["mutable"]
+    )
+    
+    x_adv = constraints_fixer.fix(x_adv.detach().numpy())
+    
     print(
         objective_calculator.get_success_rate(
-            x_test.values,
+            x_test.to_numpy().astype(np.float32),
             y_test,
-            fix_types(torch.Tensor(x_test.values), adv, metadata["type"])
-            .unsqueeze(1)
-            .detach()
-            .numpy(),
+            x_adv[:, np.newaxis, :],
             recompute=True,
         )
     )
 
 
 if __name__ == "__main__":
+    torch.set_warn_always(True)
     run()
