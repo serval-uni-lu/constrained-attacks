@@ -131,9 +131,7 @@ class CAPGD(Attack):
         # )
 
         if self.fix_equality_constraints_end:
-            adv = fix_equality_constraints(
-                self.constraints, adv
-            )
+            adv = fix_equality_constraints(self.constraints, adv)
 
         return adv
 
@@ -408,9 +406,11 @@ class CAPGD(Attack):
             x_best_adv[(pred == 0).nonzero().squeeze()] = (
                 x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
-            
+
             if self.fix_equality_constraints_iter:
-                x_best_adv = fix_equality_constraints(self.constraints, x_best_adv)
+                x_best_adv = fix_equality_constraints(
+                    self.constraints, x_best_adv
+                )
             if self.verbose:
                 print(
                     "iteration: {} - Best loss: {:.6f}".format(
