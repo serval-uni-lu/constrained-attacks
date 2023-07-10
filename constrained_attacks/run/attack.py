@@ -1,31 +1,26 @@
 import os
-import numpy as np
 
+import numpy as np
+import torch
+import torch.nn as nn
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import (
+    AndConstraint,
+    BaseRelationConstraint,
+    EqualConstraint,
+    Feature,
+)
 from mlc.datasets.dataset_factory import load_dataset
 from mlc.metrics.compute import compute_metric
 from mlc.metrics.metric_factory import create_metric
 from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
-from mlc.constraints.constraints_fixer import ConstraintsFixer
-from mlc.constraints.relation_constraint import (
-    BaseRelationConstraint,
-    EqualConstraint,
-    Feature,
-)
-import torch
-import torch.nn as nn
 
 from constrained_attacks.attacks.cta.capgd import CAPGD
-from mlc.constraints.constraints import Constraints
-from mlc.transformers.tab_scaler import TabScaler
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
-
 from constrained_attacks.utils import fix_immutable, fix_types
 
 
@@ -128,9 +123,12 @@ def run() -> None:
     print("Before fix")
     print(
         objective_calculator.get_success_rate(
-            x_test.to_numpy().astype(np.float32), y_test, adv.unsqueeze(1).detach().numpy()
+            x_test.to_numpy().astype(np.float32),
+            y_test,
+            adv.unsqueeze(1).detach().numpy(),
         )
     )
+
 
 if __name__ == "__main__":
     torch.set_warn_always(True)
