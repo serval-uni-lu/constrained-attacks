@@ -7,6 +7,13 @@ import torch
 from numpy.typing import NDArray
 
 from constrained_attacks.typing import NDNumber
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.relation_constraint import (
+    BaseRelationConstraint,
+    EqualConstraint,
+    Feature,
+)
+from mlc.constraints.constraints_fixer import ConstraintsFixer
 
 
 def mutate(x_original: NDNumber, x_mutation: NDNumber) -> None:
@@ -98,3 +105,25 @@ def fix_immutable(
         x_adv = x_adv[:, 0, :]
 
     return x_adv
+
+
+def fix_equality_constraints(constraints: Constraints, x_adv: torch.Tensor) -> torch.Tensor:
+    constraints_to_fix = [
+        c
+        for c in constraints.relation_constraints
+        if (
+            isinstance(c, EqualConstraint)
+            and isinstance(c.left_operand, Feature)
+        )
+    ]
+
+    constraints_fixer = ConstraintsFixer(
+        guard_constraints=constraints_to_fix,
+        fix_constraints=constraints_to_fix,
+        feature_names=constraints.feature_names,
+    )
+    
+    x_adv = constraints_fixer.fix(x_adv)
+    
+    return x_adv
+    
