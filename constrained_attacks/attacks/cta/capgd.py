@@ -13,7 +13,11 @@ from torchattacks.attack import Attack
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
-from constrained_attacks.utils import fix_types
+from constrained_attacks.utils import (
+    fix_equality_constraints,
+    fix_immutable,
+    fix_types,
+)
 
 
 class CAPGD(Attack):
@@ -61,6 +65,8 @@ class CAPGD(Attack):
         loss="ce",
         eot_iter=1,
         rho=0.75,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
         verbose=False,
     ):
         super().__init__("APGD", model)
@@ -76,6 +82,8 @@ class CAPGD(Attack):
         self.thr_decr = rho
         self.verbose = verbose
         self.supported_mode = ["default"]
+        self.fix_equality_constraints_end = fix_equality_constraints_end
+        self.fix_equality_constraints_iter = fix_equality_constraints_iter
 
         if self.constraints.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -99,16 +107,35 @@ class CAPGD(Attack):
         r"""
         Overridden.
         """
-        self._check_inputs(images)
+        # self._check_inputs(images)
 
-        images = self.scaler.transform(images)
+        x = images
+        x_in = images.clone()
+        x = self.scaler.transform(x)
 
-        images = images.clone().detach().to(self.device)
+        x = x.clone().detach().to(self.device)
         labels = labels.clone().detach().to(self.device)
 
-        _, adv_images = self.perturb(images, labels, cheap=True)
+        _, adv = self.perturb(x, labels, cheap=True)
 
-        return self.scaler.inverse_transform(adv_images)
+        x = self.scaler.inverse_transform(x)
+        adv = self.scaler.inverse_transform(adv)
+
+        adv = fix_types(x_in, adv, self.constraints.feature_types)
+        adv = fix_immutable(x_in, adv, self.constraints.mutable_features)
+        # adv = torch.tensor(
+        #     fix_equality_constraints(
+        #         self.constraints, adv.detach().cpu().numpy()
+        #     ),
+        #     dtype=torch.float,
+        # )
+
+        if self.fix_equality_constraints_end:
+            adv = fix_equality_constraints(
+                self.constraints, adv
+            )
+
+        return adv
 
     def check_oscillation(self, x, j, k, y5, k3=0.75):
         t = np.zeros(x.shape[1])
@@ -381,6 +408,9 @@ class CAPGD(Attack):
             x_best_adv[(pred == 0).nonzero().squeeze()] = (
                 x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
+            
+            if self.fix_equality_constraints_iter:
+                x_best_adv = fix_equality_constraints(self.constraints, x_best_adv)
             if self.verbose:
                 print(
                     "iteration: {} - Best loss: {:.6f}".format(

@@ -58,7 +58,7 @@ def run() -> None:
         model,
         metric,
         x_test.values,
-        np.array([1 - y_test, y_test]).T,
+        y_test,
     )
     print("Test AUC: ", auc)
     metric = create_metric("accuracy")
@@ -98,6 +98,7 @@ def run() -> None:
         n_restarts=1,
         eps=EPS - EPS / 100,
         loss="ce",
+        fix_equality_constraints_iter=False,
     )
 
     adv = attack(
@@ -120,50 +121,16 @@ def run() -> None:
         thresholds={
             # "misclassification": 0.5,
             "distance": EPS,
-            "constraints": 1.0,
+            "constraints": 0.01,
         },
         fun_distance_preprocess=scaler.transform,
     )
     print("Before fix")
     print(
         objective_calculator.get_success_rate(
-            x_test.values, y_test, adv.unsqueeze(1).detach().numpy()
+            x_test.to_numpy().astype(np.float32), y_test, adv.unsqueeze(1).detach().numpy()
         )
     )
-    print("After fix")
-
-    constraints_to_fix = [
-        c
-        for c in constraints.relation_constraints
-        if (
-            isinstance(c, EqualConstraint)
-            and isinstance(c.left_operand, Feature)
-        )
-    ]
-
-    constraints_fixer = ConstraintsFixer(
-        guard_constraints=constraints_to_fix,
-        fix_constraints=constraints_to_fix,
-        feature_names=constraints.feature_names,
-    )
-    
-
-    x_adv = fix_types(torch.Tensor(x_test.values), adv, metadata["type"])
-    x_adv = fix_immutable(
-        torch.Tensor(x_test.values), x_adv, metadata["mutable"]
-    )
-    
-    x_adv = constraints_fixer.fix(x_adv.detach().numpy())
-    
-    print(
-        objective_calculator.get_success_rate(
-            x_test.to_numpy().astype(np.float32),
-            y_test,
-            x_adv[:, np.newaxis, :],
-            recompute=True,
-        )
-    )
-
 
 if __name__ == "__main__":
     torch.set_warn_always(True)
