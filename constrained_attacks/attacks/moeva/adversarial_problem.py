@@ -2,7 +2,8 @@ from typing import Optional, Union
 
 import numpy as np
 from mlc.constraints.constraints import Constraints, get_feature_min_max
-from mlc.constraints.constraints_executor import NumpyConstraintsExecutor
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.numpy_backend import NumpyBackend
 from mlc.constraints.relation_constraint import AndConstraint
 from pymoo.core.problem import Problem
 
@@ -62,15 +63,20 @@ class AdversarialProblem(Problem):
         return self.x_clean
 
     def _obj_misclassify(self, x: np.ndarray) -> np.ndarray:
-        y_pred = self.classifier.predict_proba(x)[:, self.y_clean]
+        if hasattr(self.classifier, "predict_proba"):
+            y_pred = self.classifier.predict_proba(x)[:, self.y_clean]
+        else:
+            y_pred = self.classifier(x)[:, self.y_clean]
+
         return y_pred
 
     def _obj_distance(self, x_1: np.ndarray, x_2: np.ndarray) -> np.ndarray:
         return compute_distance(x_1, x_2, self.norm)
 
     def _calculate_constraints(self, x):
-        executor = NumpyConstraintsExecutor(
+        executor = ConstraintsExecutor(
             AndConstraint(self.constraints.relation_constraints),
+            NumpyBackend(),
             feature_names=self.constraints.feature_names,
         )
 

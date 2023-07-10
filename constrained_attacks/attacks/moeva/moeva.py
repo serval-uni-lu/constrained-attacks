@@ -2,9 +2,12 @@ import os
 import warnings
 from typing import Any
 
+import joblib
 import numpy as np
+import torch
 from joblib import Parallel, delayed
 from mlc.constraints.constraints import Constraints
+from mlc.utils import to_numpy_number, to_torch_number
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.rnsga3 import RNSGA3
 from pymoo.factory import (
@@ -109,6 +112,7 @@ class Moeva2:
                 "int": get_crossover(
                     "int_two_point",
                 ),
+                "cat": get_crossover("int_two_point"),
             },
         )
 
@@ -118,6 +122,7 @@ class Moeva2:
             {
                 "real": get_mutation("real_pm", eta=20),
                 "int": get_mutation("int_pm", eta=20),
+                "cat": get_mutation("int_pm", eta=20),
             },
         )
 
@@ -204,6 +209,14 @@ class Moeva2:
     # Loop over inputs to generate adversarials using the _one_generate
     # function above
     def generate(self, x: np.ndarray, y, batch_size=None):
+
+        if isinstance(x, torch.Tensor):
+            return to_torch_number(
+                self.generate(
+                    to_numpy_number(x), to_numpy_number(y), batch_size
+                )
+            )
+
         if self.ref_points is None:
             self.ref_points = get_reference_directions(
                 "energy", NB_OBJECTIVES, self.n_pop, seed=1
@@ -211,7 +224,9 @@ class Moeva2:
 
         batches_i = cut_in_batch(
             np.arange(x.shape[0]),
-            n_desired_batch=self.n_jobs,
+            n_desired_batch=self.n_jobs
+            if self.n_jobs > 1
+            else joblib.cpu_count(),
             batch_size=batch_size,
         )
 
