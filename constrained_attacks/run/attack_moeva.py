@@ -3,7 +3,9 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+from mlc.constraints.constraints import Constraints
 from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.constraints_fixer import ConstraintsFixer
 from mlc.constraints.pytorch_backend import PytorchBackend
 from mlc.constraints.relation_constraint import (
     AndConstraint,
@@ -18,17 +20,17 @@ from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
 
 from constrained_attacks.attacks.cta.capgd import CAPGD
-from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
+from constrained_attacks.attacks.moeva.moeva import Moeva2
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
 from constrained_attacks.utils import fix_immutable, fix_types
 
 
-def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
+def run() -> None:
 
     # Load data
-    dataset = load_dataset("lcld_v2_time")
+    dataset = load_dataset("lcld_201317_ds_time")
     x, y = dataset.get_x_y()
     splits = dataset.get_splits()
     x_test = x.iloc[splits["test"]][:1000]
@@ -42,8 +44,8 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
     )
 
     # Load model
-    model_class = load_model("tabtransformer")
-    save_path = f"../mlc/data/models/{dataset_name}_{model_name}.model"
+    model_class = load_model("torchrln")
+    save_path = "../mlc/data/models/lcld_torchrln.model"
     model = model_class.load_class(
         save_path, x_metadata=metadata, scaler=scaler
     )
@@ -70,7 +72,7 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         feature_names=constraints.feature_names,
     )
     constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
-    constraints_ok = (constraints_val <= 0).float().mean()
+    constraints_ok = (constraints_val <= 0.01).float().mean()
     print(f"Constraints ok: {constraints_ok*100:.2f}%")
 
     print("--------- End of verification ---------")
@@ -83,34 +85,29 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
 
     constraints_attack = dataset.get_constraints()
     # constraints_attack.relation_constraints = None
-    EPS = 8 / 255 * 6
-    attack = CAPGD(
-        constraints_attack,
-        scaler,
-        model_attack,
-        model.predict_proba,
-        verbose=True,
-        steps=10,
-        n_restarts=1,
-        eps=EPS,
-        eps_margin=0.01,
-        # eps=EPS,
-        loss="ce",
-        fix_equality_constraints_iter=True,
-    )
+    EPS = 8 / 255 * 1
 
-    attack = CPGDL2(
-        constraints_attack,
-        scaler,
-        model_attack,
-        model.predict_proba,
-        eps=EPS,
-        alpha=EPS / 3,
-        steps=100,
-        random_start=True,
-        eps_for_division=1e-10,
-        adaptive_eps=False,
+    attack = Moeva2(
+        model,
+        constraints=constraints,
+        norm="L2",
+        fun_distance_preprocess=scaler.transform,
+        # n_pop=50,
+        # n_offsprings=200,
+        n_jobs=16,
     )
+    # attack = CAPGD(
+    #     constraints_attack,
+    #     scaler,
+    #     model_attack,
+    #     model.predict_proba,
+    #     verbose=True,
+    #     steps=10,
+    #     n_restarts=1,
+    #     eps=EPS - EPS / 100,
+    #     loss="ce",
+    #     fix_equality_constraints_iter=False,
+    # )
 
     adv = attack(
         torch.Tensor(x_test.values),
@@ -137,18 +134,19 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         fun_distance_preprocess=scaler.transform,
     )
     print("Before fix")
+
+    if adv.ndim == 2:
+        adv = adv.unsqueeze(1)
+
     print(
         objective_calculator.get_success_rate(
             x_test.to_numpy().astype(np.float32),
             y_test,
-            adv.unsqueeze(1).detach().numpy(),
+            adv.detach().numpy(),
         )
     )
 
 
 if __name__ == "__main__":
     torch.set_warn_always(True)
-
-    for e in ["tabtransformer", "deepfm", "torchrln", "saint", "vime"]:
-        run(model_name=e)
     run()
