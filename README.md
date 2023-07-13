@@ -5,7 +5,7 @@ Where do we fix feature types?
 
 # How to update an attack to consider constraints
 
-## Normalisation
+## Normalization
 
 The model should always take as input, unscaled examples to simplify. 
 If not, simply add a layer of normalization.
@@ -25,4 +25,4 @@ We describe from a high-level perspective how to adapt an attack to integrate 4 
 - Mutability constraints: 
     - Use a mask on the application of the perturbation such that only the mutable features are updated
     - Use a custom layer: this implies updating the EPS
-- Bound constraints: clipping most attack are already clipping the scaled value to [0, 1]
+- Bound constraints: clipping. Most attacks are already clipping the scaled value to [0, 1]
