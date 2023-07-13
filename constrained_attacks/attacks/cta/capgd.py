@@ -67,12 +67,13 @@ class CAPGD(Attack):
         rho=0.75,
         fix_equality_constraints_end: bool = True,
         fix_equality_constraints_iter: bool = True,
+        eps_margin=0.01,
         verbose=False,
     ):
         super().__init__("APGD", model)
         self.constraints = constraints
         self.scaler = scaler
-        self.eps = eps
+        self.eps = eps - eps * eps_margin
         self.steps = steps
         self.norm = norm
         self.n_restarts = n_restarts
@@ -123,12 +124,6 @@ class CAPGD(Attack):
 
         adv = fix_types(x_in, adv, self.constraints.feature_types)
         adv = fix_immutable(x_in, adv, self.constraints.mutable_features)
-        # adv = torch.tensor(
-        #     fix_equality_constraints(
-        #         self.constraints, adv.detach().cpu().numpy()
-        #     ),
-        #     dtype=torch.float,
-        # )
 
         if self.fix_equality_constraints_end:
             adv = fix_equality_constraints(self.constraints, adv)
@@ -408,8 +403,11 @@ class CAPGD(Attack):
             )
 
             if self.fix_equality_constraints_iter:
-                x_best_adv = fix_equality_constraints(
-                    self.constraints, x_best_adv
+                x_best_adv = self.scaler.transform(
+                    fix_equality_constraints(
+                        self.constraints,
+                        self.scaler.inverse_transform(x_best_adv),
+                    )
                 )
             if self.verbose:
                 print(
@@ -461,6 +459,11 @@ class CAPGD(Attack):
                     k = np.maximum(k - self.size_decr, self.steps_min)
 
         return x_best, acc, loss_best, x_best_adv
+
+    def get_logits(self, inputs, labels=None, *args, **kwargs):
+        if hasattr(self, "scaler") and self.scaler is not None:
+            inputs = self.scaler.inverse_transform(inputs)
+        return super().get_logits(inputs, labels, *args, **kwargs)
 
     def perturb(self, x_in, y_in, best_loss=False, cheap=True):
         assert self.norm in ["Linf", "L2"]
