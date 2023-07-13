@@ -26,3 +26,7 @@ We describe from a high-level perspective how to adapt an attack to integrate 4 
     - Use a mask on the application of the perturbation such that only the mutable features are updated
     - Use a custom layer: this implies updating the EPS
 - Bound constraints: clipping. Most attacks are already clipping the scaled value to [0, 1]
+
+# Progress
+
+Check the current implementation progress in [progress.md](./progress.md).
