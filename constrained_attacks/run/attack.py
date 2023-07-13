@@ -42,7 +42,7 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
     )
 
     # Load model
-    model_class = load_model("tabtransformer")
+    model_class = load_model(model_name)
     save_path = f"../mlc/data/models/{dataset_name}_{model_name}.model"
     model = model_class.load_class(
         save_path, x_metadata=metadata, scaler=scaler
@@ -70,16 +70,14 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         feature_names=constraints.feature_names,
     )
     constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
-    constraints_ok = (constraints_val <= 0).float().mean()
+    constraints_ok = (constraints_val <= 0.01).float().mean()
     print(f"Constraints ok: {constraints_ok*100:.2f}%")
 
     print("--------- End of verification ---------")
 
     # Attack
 
-    model_attack = nn.Sequential(
-        model.model.cpu(),
-    )
+    model_attack = model.wrapper_model.cpu()
 
     constraints_attack = dataset.get_constraints()
     # constraints_attack.relation_constraints = None
