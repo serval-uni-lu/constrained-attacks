@@ -47,14 +47,14 @@ Very slow to attack. No GPU support yet.
 
 - [x] VIME 
 
-## Attacks
+## Constrained Attacks
 
 ### Documentation
 
 The attacks are defined in `mlc.attacks.cta`.  
 Check `run.*` for examples.
 
-### Implementation progress and caveat
+### Constrained Whitebox Implementation progress and caveat
 
 Untested with GPU.
 
@@ -76,6 +76,14 @@ We adapt FAB to tabular data, but we do not attempt to satisfy the constraints (
 Not implemented yet.
 For autoattack, we simply need to chain the attacks. 
 To determine if the previous attack succeeded and retrieve the previous attack successes, use the `ObjectiveCalculator`. 
+
+### Transferable Attacks Implementation progress and caveat
+- [] C-MI-FGSM (surrogate based, Momentum Iterative FGSM)
+- [] C-LGV (surrogate based, Large Geometric Vicinity)
+- [] C-SGM (surrogate based, Skip Gradient Method)
+- [] C-BASES (query based, Surrogate Ensemble Search)
+- [] C-UAP (query based, Universal Adversarial Perturbation)
+- [] L-MoEva (query based, using only label and not probability)
 
 ## Scripts
 

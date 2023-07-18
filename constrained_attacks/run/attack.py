@@ -1,8 +1,5 @@
-import os
-
 import numpy as np
 import torch
-import torch.nn as nn
 from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
 from mlc.constraints.pytorch_backend import PytorchBackend
 from mlc.constraints.relation_constraint import (
@@ -43,7 +40,7 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
 
     # Load model
     model_class = load_model(model_name)
-    save_path = f"../mlc/data/models/{dataset_name}_{model_name}.model"
+    save_path = f"../models/constrained/{dataset_name}_{model_name}.model"
     model = model_class.load_class(
         save_path, x_metadata=metadata, scaler=scaler
     )
