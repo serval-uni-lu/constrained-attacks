@@ -81,9 +81,9 @@ To determine if the previous attack succeeded and retrieve the previous attack s
 - [x] C-MAPGD(surrogate based, Momentum APGD)
 - [x] C-LGV (surrogate based, Large Geometric Vicinity)
 - [x] C-SGM (surrogate based, Skip Gradient Method)
-- [] C-BASES (query based, Surrogate Ensemble Search)
-- [] C-UAP (query based, Universal Adversarial Perturbation)
-- [] L-MoEva (query based, using only label and not probability)
+- [ ] C-BASES (query based, Surrogate Ensemble Search)
+- [ ] C-UAP (query based, Universal Adversarial Perturbation)
+- [ ] L-MoEva (query based, using only label and not probability)
 
 ## Scripts
 

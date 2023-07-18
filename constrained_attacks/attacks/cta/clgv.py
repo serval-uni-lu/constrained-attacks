@@ -34,7 +34,7 @@ class CLGV(LGV):
             - output: :math:`(N, C, H, W)`.
 
         Examples::
-            >>> attack = torchattacks.LGV(model, trainloader, lr=0.05, epochs=10, nb_models_epoch=4, wd=1e-4, n_grad=1, attack_class=BIM, eps=4/255, alpha=4/255/10, steps=50, verbose=True)
+            >>> attack = torchattacks.LGV(model, trainloader, lr=0.05, epochs=10, nb_models_epoch=4, wd=1e-4, n_grad=1, attack_class=CAPGD, eps=4/255, alpha=4/255/10, steps=50, verbose=True)
             >>> attack.collect_models()
             >>> attack.save_models('./models/lgv/')
             >>> adv_images = attack(images, labels)
@@ -47,22 +47,24 @@ class CLGV(LGV):
         self.models_path = models_path
 
     def collect_models(self):
-
-        models_path = os.path.join(self.models_path, "lgv", self.model_name)
-        if os.path.isdir(models_path):
-            list_models = []
-            files = [f for f in os.listdir(models_path) if os.path.isfile(os.path.join(models_path, f))]
-            for f in files:
-                model = copy.deepcopy(self.model)
-                weights = torch.load(os.path.join(models_path, f))
-                model.load_state_dict(weights.get('state_dict'))
-                list_models.append(model)
-            self.list_models = list_models
-        else:
-            print("LGV models not found for {}. Collecting them!".format(models_path))
+        if self.models_path is None:
             super(CLGV, self).collect_models()
-            os.makedirs(models_path, exist_ok=True)
-            self.save_models(models_path)
+        else:
+            models_path = os.path.join(self.models_path, "lgv", self.model_name)
+            if os.path.isdir(models_path):
+                list_models = []
+                files = [f for f in os.listdir(models_path) if os.path.isfile(os.path.join(models_path, f))]
+                for f in files:
+                    model = copy.deepcopy(self.model)
+                    weights = torch.load(os.path.join(models_path, f))
+                    model.load_state_dict(weights.get('state_dict'))
+                    list_models.append(model)
+                self.list_models = list_models
+            else:
+                print("LGV models not found for {}. Collecting them!".format(models_path))
+                super(CLGV, self).collect_models()
+                os.makedirs(models_path, exist_ok=True)
+                self.save_models(models_path)
 
 
 
