@@ -1,3 +1,6 @@
+import os
+import torch
+import copy
 from torchattacks import LGV
 from constrained_attacks.attacks.cta.capgd import CAPGD
 
@@ -38,6 +41,28 @@ class CLGV(LGV):
         """
 
     def __init__(self, model, trainloader, lr=0.05, epochs=10, nb_models_epoch=4, wd=1e-4, n_grad=1, verbose=True,
-                 attack_class=CAPGD,attack_attr={}):
+                 models_path=None,attack_class=CAPGD,attack_attr={}):
 
         super(CLGV, self).__init__(model, trainloader, lr, epochs, nb_models_epoch, wd, n_grad, verbose,attack_class, **attack_attr )
+        self.models_path = models_path
+
+    def collect_models(self):
+
+        models_path = os.path.join(self.models_path, "lgv", self.model_name)
+        if os.path.isdir(models_path):
+            list_models = []
+            files = [f for f in os.listdir(models_path) if os.path.isfile(os.path.join(models_path, f))]
+            for f in files:
+                model = copy.deepcopy(self.model)
+                weights = torch.load(os.path.join(models_path, f))
+                model.load_state_dict(weights.get('state_dict'))
+                list_models.append(model)
+            self.list_models = list_models
+        else:
+            print("LGV models not found for {}. Collecting them!".format(models_path))
+            super(CLGV, self).collect_models()
+            os.makedirs(models_path, exist_ok=True)
+            self.save_models(models_path)
+
+
+

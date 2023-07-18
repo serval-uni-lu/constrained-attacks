@@ -78,8 +78,8 @@ For autoattack, we simply need to chain the attacks.
 To determine if the previous attack succeeded and retrieve the previous attack successes, use the `ObjectiveCalculator`. 
 
 ### Transferable Attacks Implementation progress and caveat
-- [] C-MAPGD(surrogate based, Momentum APGD)
-- [] C-LGV (surrogate based, Large Geometric Vicinity)
+- [x] C-MAPGD(surrogate based, Momentum APGD)
+- [x] C-LGV (surrogate based, Large Geometric Vicinity)
 - [] C-SGM (surrogate based, Skip Gradient Method)
 - [] C-BASES (query based, Surrogate Ensemble Search)
 - [] C-UAP (query based, Universal Adversarial Perturbation)
