@@ -47,6 +47,7 @@ class CMAPGD(Attack):
         loss="ce",
         eot_iter=1,
         rho=0.75,
+        decay=1.0,
         fix_equality_constraints_end: bool = True,
         fix_equality_constraints_iter: bool = True,
         eps_margin=0.01,
@@ -63,6 +64,8 @@ class CMAPGD(Attack):
         self.loss = loss
         self.eot_iter = eot_iter
         self.thr_decr = rho
+        self.decay = decay
+
         self.verbose = verbose
         self.supported_mode = ["default"]
         self.fix_equality_constraints_end = fix_equality_constraints_end
@@ -227,6 +230,7 @@ class CMAPGD(Attack):
             ].detach()  # 1 backward pass (eot_iter = 1)
 
         grad /= float(self.eot_iter)
+
         grad_best = grad.clone()
 
         acc = logits.detach().max(1)[1] == y
@@ -264,6 +268,8 @@ class CMAPGD(Attack):
             loss_best.shape
         )
         n_reduced = 0
+
+        momentum = torch.zeros_like(x_adv).detach().to(self.device)
 
         for i in range(self.steps):
             # -- gradient step
@@ -376,6 +382,8 @@ class CMAPGD(Attack):
                 ].detach()  # 1 backward pass (eot_iter = 1)
 
             grad /= float(self.eot_iter)
+            grad = grad + momentum * self.decay
+            momentum = grad
 
             pred = logits.detach().max(1)[1] == y
             acc = torch.min(acc, pred)
