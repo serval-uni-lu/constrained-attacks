@@ -72,6 +72,9 @@ class CPGDL2(Attack):
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
         self.adaptive_eps = adaptive_eps
 
+        self.objective_calculator = None
+        self.constraints_executor = None
+
         if self.constraints.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
                 model_objective,
@@ -88,7 +91,7 @@ class CPGDL2(Attack):
 
         self.mutable_mask = scaler.transform_mask(
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
-        )
+        ).to(self.device)
 
     def get_logits(self, inputs, labels=None, *args, **kwargs):
         if hasattr(self, "scaler") and self.scaler is not None:
