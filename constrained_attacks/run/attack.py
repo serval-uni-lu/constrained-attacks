@@ -93,7 +93,7 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         loss="ce",
         fix_equality_constraints_iter=True,
     )
-
+"""
     attack = CPGDL2(
         constraints_attack,
         scaler,
@@ -106,7 +106,7 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         eps_for_division=1e-10,
         adaptive_eps=False,
     )
-
+"""
     adv = attack(
         torch.Tensor(x_test.values),
         torch.tensor(y_test, dtype=torch.long),
