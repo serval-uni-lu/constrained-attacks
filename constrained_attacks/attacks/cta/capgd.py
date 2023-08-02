@@ -99,6 +99,9 @@ class CAPGD(Attack):
                 PytorchBackend(),
                 feature_names=self.constraints.feature_names,
             )
+        else:
+            self.objective_calculator = None
+            self.constraints_executor = None
 
         self.mutable_mask = scaler.transform_mask(
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
