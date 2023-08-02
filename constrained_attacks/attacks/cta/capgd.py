@@ -105,7 +105,7 @@ class CAPGD(Attack):
 
         self.mutable_mask = scaler.transform_mask(
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
-        )
+        ).to(self.device)
 
     def forward(self, images, labels):
         r"""
@@ -173,7 +173,7 @@ class CAPGD(Attack):
 
         if self.norm == "Linf":
             t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
-            x_adv = x.detach() + self.mutable_mask * (
+            x_adv = x.detach() + self.mutable_mask.to(self.device) * (
                 self.eps
                 * torch.ones(
                     [
@@ -296,7 +296,7 @@ class CAPGD(Attack):
                 a = 0.75 if i > 0 else 1.0
 
                 if self.norm == "Linf":
-                    x_adv_1 = x_adv + self.mutable_mask * (
+                    x_adv_1 = x_adv + self.mutable_mask.to(x_adv.device) * (
                         step_size * torch.sign(grad)
                     )
                     x_adv_1 = torch.clamp(
