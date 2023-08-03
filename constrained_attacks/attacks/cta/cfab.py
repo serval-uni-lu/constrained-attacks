@@ -17,7 +17,20 @@ import torch
 import torch.nn.functional as F
 from torchattacks.attack import Attack
 from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
 from mlc.transformers.tab_scaler import TabScaler
+from torchattacks.attack import Attack
+
+from constrained_attacks.objective_calculator.cache_objective_calculator import (
+    ObjectiveCalculator,
+)
+from constrained_attacks.utils import (
+    fix_equality_constraints,
+    fix_immutable,
+    fix_types,
+)
 
 
 class CFAB(Attack):
@@ -29,6 +42,8 @@ class CFAB(Attack):
     Distance Measure : Linf, L2, L1
 
     Arguments:
+        constraints (Constraints) : The constraint object to be checked successively
+        scaler (TabScaler): scaler used to transform the inputs
         model (nn.Module): model to attack.
         norm (str) : Lp-norm to minimize. ['Linf', 'L2', 'L1'] (Default: 'Linf')
         eps (float): maximum perturbation. (Default: 8/255)
@@ -58,6 +73,7 @@ class CFAB(Attack):
         constraints: Constraints,
         scaler: TabScaler,
         model,
+        model_objective,
         norm="Linf",
         eps=8 / 255,
         steps=10,
@@ -69,12 +85,15 @@ class CFAB(Attack):
         seed=0,
         multi_targeted=False,
         n_classes=10,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
+        eps_margin=0.01,
     ):
         super().__init__("FAB", model)
         self.norm = norm
         self.n_restarts = n_restarts
         Default_EPS_DICT_BY_NORM = {"Linf": 0.3, "L2": 1.0, "L1": 5.0}
-        self.eps = eps if eps is not None else Default_EPS_DICT_BY_NORM[norm]
+        self.eps = eps -eps_margin if eps is not None else Default_EPS_DICT_BY_NORM[norm]
         self.alpha_max = alpha_max
         self.eta = eta
         self.beta = beta
@@ -89,6 +108,26 @@ class CFAB(Attack):
         self.constraints = constraints
         self.scaler = scaler
 
+        self.fix_equality_constraints_end = fix_equality_constraints_end
+        self.fix_equality_constraints_iter = fix_equality_constraints_iter
+
+        if self.constraints.relation_constraints is not None:
+            self.objective_calculator = ObjectiveCalculator(
+                model_objective,
+                constraints=self.constraints,
+                thresholds={"distance": eps},
+                norm=norm,
+                fun_distance_preprocess=self.scaler.transform,
+            )
+            self.constraints_executor = ConstraintsExecutor(
+                AndConstraint(self.constraints.relation_constraints),
+                PytorchBackend(),
+                feature_names=self.constraints.feature_names,
+            )
+        else:
+            self.objective_calculator = None
+            self.constraints_executor = None
+
     def forward(self, images, labels):
         r"""
         Overridden.
@@ -101,7 +140,13 @@ class CFAB(Attack):
 
         self.scaler.inverse_transform(adv_images)
 
-        return adv_images
+        adv = fix_types(images, adv_images, self.constraints.feature_types)
+        adv = fix_immutable(images, adv, self.constraints.mutable_features)
+
+        if self.fix_equality_constraints_end:
+            adv = fix_equality_constraints(self.constraints, adv)
+
+        return adv
 
     def _get_predicted_label(self, x):
         with torch.no_grad():
@@ -349,6 +394,14 @@ class CFAB(Attack):
                         (x1 + self.eta * d1) * (1 - alpha)
                         + (im2 + d2 * self.eta) * alpha
                     ).clamp(0.0, 1.0)
+
+                    if self.fix_equality_constraints_iter:
+                        x1 = self.scaler.transform(
+                            fix_equality_constraints(
+                                self.constraints,
+                                self.scaler.inverse_transform(x1),
+                            )
+                        )
 
                     is_adv = self._get_predicted_label(x1) != la2
 
