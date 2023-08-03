@@ -1,5 +1,5 @@
 """
-Scenario A: Whitebox attacks without knowing domain constraints
+Scenario A1: Whitebox attacks without knowing domain constraints
 Source and target models are the same; PGD, APGD, FAB, and AA evaluation
 """
 
@@ -10,6 +10,7 @@ from comet import XP
 
 import torch
 import numpy as np
+import copy
 from argparse import ArgumentParser
 
 from mlc.datasets.dataset_factory import load_dataset
@@ -46,7 +47,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
     # In scneario A1, the attacker is not aware of the constraints or the mutable features
-    constraints = dataset.get_constraints()
+    constraints = copy.deepcopy(dataset.get_constraints())
     constraints.relation_constraints = None
     constraints.mutable_features = None
     attack_args = {"eps": args.max_eps, **attack_class[1]}
@@ -68,10 +69,11 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
         )
         experiment.log_metric("adv_auc",auc, step=batch_idx)
 
+        eval_constraints = copy.deepcopy(dataset.get_constraints())
         constraints_executor = ConstraintsExecutor(
-            AndConstraint(constraints.relation_constraints),
+            AndConstraint(eval_constraints.relation_constraints),
             PytorchBackend(),
-            feature_names=constraints.feature_names,
+            feature_names=eval_constraints.feature_names,
         )
         constraints_val = constraints_executor.execute(adv_x)
         constraints_ok = (constraints_val <= 0).float().mean()
@@ -79,7 +81,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
 
         objective_calculator = ObjectiveCalculator(
             classifier=model.predict_proba,
-            constraints=constraints,
+            constraints=eval_constraints,
             thresholds={
                 "distance": args.max_eps,
                 "constraints": 0.01,
