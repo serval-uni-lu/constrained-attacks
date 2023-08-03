@@ -59,6 +59,7 @@ class CPGDL2(Attack):
             fix_equality_constraints_iter: bool = True,
             adaptive_eps: bool = False,
             eps_margin=0.01,
+            **kwargs
     ):
         super().__init__("PGDL2", model)
         self.eps = eps - eps * eps_margin

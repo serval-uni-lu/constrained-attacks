@@ -39,7 +39,7 @@ def tf_lof_off():
 class Moeva2:
     def __init__(
             self,
-            classifier_class,
+            model,
             constraints: Constraints,
             norm=None,
             fun_distance_preprocess=lambda x: x,
@@ -50,9 +50,10 @@ class Moeva2:
             seed=None,
             n_jobs=-1,
             verbose=1,
+            **kwargs
     ) -> None:
 
-        self.classifier_class = classifier_class
+        self.classifier_class = model
         self.constraints = constraints
         self.norm = norm
         self.fun_distance_preprocess = fun_distance_preprocess
