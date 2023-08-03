@@ -3,7 +3,8 @@ Scenario A1: Whitebox attacks without knowing domain constraints
 Source and target models are the same; PGD, APGD, FAB, and AA evaluation
 """
 
-import sys, os
+import os
+import sys
 
 sys.path.append(".")
 from comet import XP
@@ -30,27 +31,31 @@ from mlc.constraints.relation_constraint import (
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.cfab import CFAB
+from constrained_attacks.attacks.cta.caa import ConstrainedAutoAttack
 from constrained_attacks.attacks.moeva.moeva import Moeva2
 
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 
-ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}), "moeva": (Moeva2, {}), "caa": (None, {})}
 
-
-def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examples:int=1, xp_path="./data"):
+def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examples: int = 1, xp_path="./data"):
     experiment = XP(args)
 
-    save_path = os.path.join(xp_path,experiment.get_name())
+    save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
 
     attack_name = args.get("attack_name", "pgdl2")
+    ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
+               "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
+                                               "thresholds":{"distance": args.max_eps}}),
+               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()),})}
+
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
     # In scneario A1, the attacker is not aware of the constraints or the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
     constraints.relation_constraints = None
     constraints.mutable_features = None
-    attack_args = {"eps": args.max_eps, **attack_class[1]}
+    attack_args = {"eps": args.max_eps, "norm":"L2",**attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model,
                              fix_equality_constraints_end=False, fix_equality_constraints_iter=False,
@@ -67,7 +72,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
             adv_x,
             y,
         )
-        experiment.log_metric("adv_auc",auc, step=batch_idx)
+        experiment.log_metric("adv_auc", auc, step=batch_idx)
 
         eval_constraints = copy.deepcopy(dataset.get_constraints())
         constraints_executor = ConstraintsExecutor(
@@ -97,14 +102,13 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
 
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
-            adv_path = os.path.join(save_path,adv_name)
+            adv_path = os.path.join(save_path, adv_name)
             adv_x.detach().cpu().save(adv_path)
             experiment.log_asset(adv_name, adv_path)
 
 
-
 def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_eps: float = 0.1, subset: int = 1,
-        batch_size: int = 1024, save_examples: int = 1, device:str="cuda", custom_path:str=""):
+        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = ""):
     # Load data
 
     dataset = load_dataset("lcld_v2_time")
@@ -127,7 +131,7 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
 
     # Load model
     model_class = load_model(model_name)
-    weight_path = f"../models/constrained/{dataset_name}_{model_name}.model" if custom_path=="" else custom_path
+    weight_path = f"../models/constrained/{dataset_name}_{model_name}.model" if custom_path == "" else custom_path
     model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler)
     model = model.to(device)
     print("--------- Start of verification ---------")
@@ -159,7 +163,7 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
 
     for attack_name in attacks_name:
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
-                "batch_size": batch_size, "max_eps": max_eps, "weight_path":weight_path}
+                "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
         run_experiment(model, dataset, scaler, x_test, y_test, args, device, save_examples)
 
@@ -186,5 +190,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset,custom_path=args.custom_path,
+        subset=args.subset, custom_path=args.custom_path,
         batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.devie)

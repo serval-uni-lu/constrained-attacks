@@ -62,7 +62,7 @@ class ConstrainedMultiAttack(MultiAttack):
         return final_images
 
 
-class AutoAttack(Attack):
+class ConstrainedAutoAttack(Attack):
     r"""
     Extended AutoAttack in the paper 'Reliable evaluation of adversarial robustness with an ensemble of diverse parameter-free attacks'
     [https://arxiv.org/abs/2003.01690]
