@@ -9,6 +9,7 @@ sys.path.append(".")
 from comet import XP
 
 import torch
+import numpy as np
 from argparse import ArgumentParser
 
 from mlc.datasets.dataset_factory import load_dataset
@@ -18,6 +19,9 @@ from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
 
 from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from constrained_attacks.objective_calculator.cache_objective_calculator import (
+    ObjectiveCalculator,
+)
 from mlc.constraints.pytorch_backend import PytorchBackend
 from mlc.constraints.relation_constraint import (
     AndConstraint
@@ -64,6 +68,31 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
         )
         experiment.log_metric("adv_auc",auc, step=batch_idx)
 
+        constraints_executor = ConstraintsExecutor(
+            AndConstraint(constraints.relation_constraints),
+            PytorchBackend(),
+            feature_names=constraints.feature_names,
+        )
+        constraints_val = constraints_executor.execute(adv_x)
+        constraints_ok = (constraints_val <= 0).float().mean()
+        experiment.log_metric("adv_constraints", constraints_ok, step=batch_idx)
+
+        objective_calculator = ObjectiveCalculator(
+            classifier=model.predict_proba,
+            constraints=constraints,
+            thresholds={
+                "distance": args.max_eps,
+                "constraints": 0.01,
+            },
+            norm="L2",
+            fun_distance_preprocess=scaler.transform,
+        )
+        success_rate = objective_calculator.get_success_rate(
+            x.to_numpy().astype(np.float32),
+            y,
+            adv_x.unsqueeze(1).detach().numpy(),
+        )
+
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
             adv_path = os.path.join(save_path,adv_name)
@@ -73,7 +102,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
 
 
 def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_eps: float = 0.1, subset: int = 1,
-        batch_size: int = 1024, save_examples: int = 1, device:str="cuda"):
+        batch_size: int = 1024, save_examples: int = 1, device:str="cuda", custom_path:str=""):
     # Load data
 
     dataset = load_dataset("lcld_v2_time")
@@ -96,8 +125,8 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
 
     # Load model
     model_class = load_model(model_name)
-    save_path = f"../models/constrained/{dataset_name}_{model_name}.model"
-    model = model_class.load_class(save_path, x_metadata=metadata, scaler=scaler)
+    weight_path = f"../models/constrained/{dataset_name}_{model_name}.model" if custom_path=="" else custom_path
+    model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler)
     model = model.to(device)
     print("--------- Start of verification ---------")
     # Verify model
@@ -128,7 +157,7 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
 
     for attack_name in attacks_name:
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
-                "batch_size": batch_size, "max_eps": max_eps}
+                "batch_size": batch_size, "max_eps": max_eps, "weight_path":weight_path}
 
         run_experiment(model, dataset, scaler, x_test, y_test, args, device, save_examples)
 
@@ -140,6 +169,8 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str, default="lcld_v2_iid",
                         )
     parser.add_argument("--model_name", type=str, default="tabtransformer",
+                        )
+    parser.add_argument("--custom_path", type=str, default="",
                         )
     parser.add_argument("--attacks_name", type=str, default="pgdl2",
                         )
@@ -153,5 +184,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset,
+        subset=args.subset,custom_path=args.custom_path,
         batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.devie)
