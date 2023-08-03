@@ -6,8 +6,6 @@ import joblib
 import numpy as np
 import torch
 from joblib import Parallel, delayed
-from mlc.constraints.constraints import Constraints
-from mlc.utils import to_numpy_number, to_torch_number
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.rnsga3 import RNSGA3
 from pymoo.factory import (
@@ -26,7 +24,8 @@ from tqdm import tqdm
 from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
 from constrained_attacks.attacks.moeva.operators import InitialStateSampling
 from constrained_attacks.utils import cut_in_batch
-
+from mlc.constraints.constraints import Constraints
+from mlc.utils import to_numpy_number, to_torch_number
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 
 
@@ -39,18 +38,18 @@ def tf_lof_off():
 
 class Moeva2:
     def __init__(
-        self,
-        classifier_class,
-        constraints: Constraints,
-        norm=None,
-        fun_distance_preprocess=lambda x: x,
-        n_gen=100,
-        n_pop=203,
-        n_offsprings=100,
-        save_history=None,
-        seed=None,
-        n_jobs=-1,
-        verbose=1,
+            self,
+            classifier_class,
+            constraints: Constraints,
+            norm=None,
+            fun_distance_preprocess=lambda x: x,
+            n_gen=100,
+            n_pop=203,
+            n_offsprings=100,
+            save_history=None,
+            seed=None,
+            n_jobs=-1,
+            verbose=1,
     ) -> None:
 
         self.classifier_class = classifier_class
@@ -268,6 +267,6 @@ class Moeva2:
             return np.concatenate(out)
 
     def __call__(
-        self, x: np.ndarray, y, batch_size=None, *args, **kwargs
+            self, x: np.ndarray, y, batch_size=None, *args, **kwargs
     ) -> Any:
         return self.generate(x, y, batch_size)

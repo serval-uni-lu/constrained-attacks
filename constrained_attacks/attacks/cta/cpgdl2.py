@@ -1,10 +1,5 @@
 import torch
 import torch.nn as nn
-from mlc.constraints.constraints import Constraints
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-from mlc.transformers.tab_scaler import TabScaler
 from torchattacks.attack import Attack
 
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
@@ -15,6 +10,11 @@ from constrained_attacks.utils import (
     fix_immutable,
     fix_types,
 )
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.transformers.tab_scaler import TabScaler
 
 
 class CPGDL2(Attack):
@@ -25,6 +25,8 @@ class CPGDL2(Attack):
     Distance Measure : L2
 
     Arguments:
+        constraints (Constraints) : The constraint object to be checked successively
+        scaler (TabScaler): scaler used to transform the inputs
         model (nn.Module): model to attack.
         eps (float): maximum perturbation. (Default: 1.0)
         alpha (float): step size. (Default: 0.2)
@@ -43,20 +45,20 @@ class CPGDL2(Attack):
     """
 
     def __init__(
-        self,
-        constraints: Constraints,
-        scaler: TabScaler,
-        model,
-        model_objective,
-        eps=1.0,
-        alpha=0.2,
-        steps=10,
-        random_start=True,
-        eps_for_division=1e-10,
-        fix_equality_constraints_end: bool = True,
-        fix_equality_constraints_iter: bool = True,
-        adaptive_eps: bool = False,
-        eps_margin=0.01,
+            self,
+            constraints: Constraints,
+            scaler: TabScaler,
+            model,
+            model_objective,
+            eps=1.0,
+            alpha=0.2,
+            steps=10,
+            random_start=True,
+            eps_for_division=1e-10,
+            fix_equality_constraints_end: bool = True,
+            fix_equality_constraints_iter: bool = True,
+            adaptive_eps: bool = False,
+            eps_margin=0.01,
     ):
         super().__init__("PGDL2", model)
         self.eps = eps - eps * eps_margin
@@ -180,8 +182,8 @@ class CPGDL2(Attack):
                 allow_unused=True,
             )[0]
             grad_norms = (
-                torch.norm(grad.view(batch_size, -1), p=2, dim=1)
-                + self.eps_for_division
+                    torch.norm(grad.view(batch_size, -1), p=2, dim=1)
+                    + self.eps_for_division
             )  # nopep8
             grad = grad / grad_norms.view(batch_size, 1)
 
@@ -192,12 +194,12 @@ class CPGDL2(Attack):
                     step // iteration_per_step + 1
                 ).float()
                 local_alpha = self.eps * (
-                    1 / torch.float_power(10.0, current_power)
+                        1 / torch.float_power(10.0, current_power)
                 )
                 print(local_alpha)
 
             adv_images = (
-                adv_images.detach() + local_alpha * grad * self.mutable_mask
+                    adv_images.detach() + local_alpha * grad * self.mutable_mask
             )
 
             delta = adv_images - images

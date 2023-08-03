@@ -1,33 +1,27 @@
 import time
 
-import torch
 import numpy as np
+import torch
 from torchattacks.attack import Attack
-from mlc.constraints.constraints import Constraints
-from mlc.transformers.tab_scaler import TabScaler
-
-from constrained_attacks.objective_calculator.cache_objective_calculator import (
-    ObjectiveCalculator,
-)
-from mlc.constraints.pytorch_backend import PytorchBackend
-from constrained_attacks.utils import (
-    fix_equality_constraints,
-    fix_immutable,
-    fix_types,
-)
-from mlc.constraints.relation_constraint import AndConstraint
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
 from torchattacks.wrappers.multiattack import MultiAttack
+
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.cfab import CFAB
 from constrained_attacks.attacks.moeva.moeva import Moeva2
+from constrained_attacks.objective_calculator.cache_objective_calculator import (
+    ObjectiveCalculator,
+)
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.transformers.tab_scaler import TabScaler
 
 
 class ConstrainedMultiAttack(MultiAttack):
     def __init__(self, objective_calculator, *args, **kargs):
-        super(ConstrainedMultiAttack, self).__init__( *args, **kargs)
+        super(ConstrainedMultiAttack, self).__init__(*args, **kargs)
         self.objective_calculator = objective_calculator
-
 
     def forward(self, images, labels):
         r"""
@@ -49,7 +43,7 @@ class ConstrainedMultiAttack(MultiAttack):
             corrects = (pre == labels[fails])
 
             success_attack_indices = self.objective_calculator.get_successful_attacks_indexes(
-                images[fails].to_numpy().astype(np.float32),labels[fails], adv_images.unsqueeze(1).detach().numpy(),)
+                images[fails].to_numpy().astype(np.float32), labels[fails], adv_images.unsqueeze(1).detach().numpy(), )
 
             final_images[success_attack_indices] = adv_images[success_attack_indices]
 
@@ -66,6 +60,7 @@ class ConstrainedMultiAttack(MultiAttack):
             self._update_multi_atk_records(multi_atk_records)
 
         return final_images
+
 
 class AutoAttack(Attack):
     r"""
@@ -99,9 +94,10 @@ class AutoAttack(Attack):
 
     """
 
-    def __init__(self, constraints: Constraints,constraints_eval: Constraints, scaler: TabScaler, model, model_objective,
-             fix_equality_constraints_end: bool = True,fix_equality_constraints_iter: bool = True,eps_margin=0.01,
-                 device=None, norm='Linf', eps=8/255, version='standard', n_classes=10, seed=None, verbose=False):
+    def __init__(self, constraints: Constraints, constraints_eval: Constraints, scaler: TabScaler, model,
+                 model_objective,
+                 fix_equality_constraints_end: bool = True, fix_equality_constraints_iter: bool = True, eps_margin=0.01,
+                 device=None, norm='Linf', eps=8 / 255, version='standard', n_classes=10, seed=None, verbose=False):
         super().__init__('AutoAttack', model, device)
         self.norm = norm
         self.eps = eps
@@ -116,7 +112,6 @@ class AutoAttack(Attack):
         self.eps_margin = eps_margin
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
-
 
         if self.constraints_eval.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -137,12 +132,14 @@ class AutoAttack(Attack):
 
         if version == 'standard':  # ['apgd-ce', 'apgd-t', 'fab-t', 'square']
             self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
-                CAPGD(constraints, scaler,model,model_objective, eps=eps, norm=norm, seed=self.get_seed(),
-                     verbose=verbose, loss='ce', n_restarts=1, fix_equality_constraints_end=fix_equality_constraints_end,
-        fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin,),
-                CFAB(constraints, scaler, model,model_objective, eps=eps, norm=norm, seed=self.get_seed(
-                ), verbose=verbose, multi_targeted=True, n_classes=n_classes, n_restarts=1, fix_equality_constraints_end=fix_equality_constraints_end,
-        fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
+                CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
+                      verbose=verbose, loss='ce', n_restarts=1,
+                      fix_equality_constraints_end=fix_equality_constraints_end,
+                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, ),
+                CFAB(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(
+                ), verbose=verbose, multi_targeted=True, n_classes=n_classes, n_restarts=1,
+                     fix_equality_constraints_end=fix_equality_constraints_end,
+                     fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
                 Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
                        verbose=verbose, fun_distance_preprocess=scaler.transform),
             ])
@@ -170,17 +167,18 @@ class AutoAttack(Attack):
                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
             ])
 
-        elif version == 'rand': 
+        elif version == 'rand':
             self._autoattack = MultiAttack([
                 CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
                       verbose=verbose, loss='ce',
                       fix_equality_constraints_end=fix_equality_constraints_end,
-                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, eot_iter=20, n_restarts=1),
+                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, eot_iter=20,
+                      n_restarts=1),
             ])
 
         else:
             raise ValueError("Not valid version. ['standard', 'plus', 'rand']")
-        
+
     def forward(self, images, labels):
         r"""
         Overridden.
@@ -191,7 +189,6 @@ class AutoAttack(Attack):
         adv_images = self._autoattack(images, labels)
 
         return adv_images
-
 
     def get_seed(self):
         return time.time() if self.seed is None else self.seed

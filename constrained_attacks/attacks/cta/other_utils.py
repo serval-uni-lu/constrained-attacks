@@ -22,7 +22,7 @@ def check_imgs(adv, x, norm):
     if norm == "Linf":
         res = delta.abs().max(dim=1)[0]
     elif norm == "L2":
-        res = (delta**2).sum(dim=1).sqrt()
+        res = (delta ** 2).sum(dim=1).sqrt()
     elif norm == "L1":
         res = delta.abs().sum(dim=1)
 
@@ -42,7 +42,7 @@ def L1_norm(x, keepdim=False):
 
 
 def L2_norm(x, keepdim=False):
-    z = (x**2).view(x.shape[0], -1).sum(-1).sqrt()
+    z = (x ** 2).view(x.shape[0], -1).sum(-1).sqrt()
     if keepdim:
         z = z.view(-1, *[1] * (len(x.shape) - 1))
     return z

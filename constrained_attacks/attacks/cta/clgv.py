@@ -1,8 +1,11 @@
-import os
-import torch
 import copy
+import os
+
+import torch
 from torchattacks import LGV
+
 from constrained_attacks.attacks.cta.capgd import CAPGD
+
 
 class CLGV(LGV):
     r"""
@@ -41,9 +44,10 @@ class CLGV(LGV):
         """
 
     def __init__(self, model, trainloader, lr=0.05, epochs=10, nb_models_epoch=4, wd=1e-4, n_grad=1, verbose=True,
-                 models_path=None,attack_class=CAPGD,attack_attr={}):
+                 models_path=None, attack_class=CAPGD, attack_attr={}):
 
-        super(CLGV, self).__init__(model, trainloader, lr, epochs, nb_models_epoch, wd, n_grad, verbose,attack_class, **attack_attr )
+        super(CLGV, self).__init__(model, trainloader, lr, epochs, nb_models_epoch, wd, n_grad, verbose, attack_class,
+                                   **attack_attr)
         self.models_path = models_path
 
     def collect_models(self):
@@ -65,6 +69,3 @@ class CLGV(LGV):
                 super(CLGV, self).collect_models()
                 os.makedirs(models_path, exist_ok=True)
                 self.save_models(models_path)
-
-
-

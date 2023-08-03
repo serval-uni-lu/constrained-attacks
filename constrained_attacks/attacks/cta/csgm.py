@@ -1,9 +1,12 @@
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.utils.utils_sgm import register_hook_for_resnet, register_hook_for_densenet
+
+
 class CSGM(CAPGD):
     r"""
     Same parameters as CAPG + an arhcitecture name and a gamma value
     """
+
     def __init__(self, *args, arch="", gamma=1, **kwargs):
         super(CSGM, self).__init__(*args, **kwargs)
         self.arch = arch
@@ -16,4 +19,3 @@ class CSGM(CAPGD):
         else:
             raise ValueError('Current code only supports resnet/densenet. '
                              'You can extend this code to other architectures.')
-

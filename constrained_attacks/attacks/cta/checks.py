@@ -1,15 +1,13 @@
-import math
 import sys
 import warnings
 
 import torch
-
 from constrained_attacks.attacks.cautopgd.other_utils import L2_norm
 
 funcs = {
     "grad": 0,
     "backward": 0,
-    #'enable_grad': 0
+    # 'enable_grad': 0
     "_make_grads": 0,
 }
 
@@ -35,8 +33,8 @@ def check_randomized(model, x, y, bs=250, n=5, alpha=1e-4, logger=None):
             # print(diff.max().item(), max_diff)
     if any(acc) or max_diff > alpha:
         msg = (
-            'it seems to be a randomized defense! Please use version="rand".'
-            + f" See {checks_doc_path} for details."
+                'it seems to be a randomized defense! Please use version="rand".'
+                + f" See {checks_doc_path} for details."
         )
         if logger is None:
             warnings.warn(Warning(msg))
@@ -54,9 +52,9 @@ def check_range_output(model, x, alpha=1e-5, logger=None):
     ]
     if all(fl):
         msg = (
-            "it seems that the output is a probability distribution,"
-            + " please be sure that the logits are used!"
-            + f" See {checks_doc_path} for details."
+                "it seems that the output is a probability distribution,"
+                + " please be sure that the logits are used!"
+                + f" See {checks_doc_path} for details."
         )
         if logger is None:
             warnings.warn(Warning(msg))
@@ -70,9 +68,9 @@ def check_zero_gradients(grad, logger=None):
     # print(grad[0, :10])
     if (z == 0).any():
         msg = (
-            f"there are {(z == 0).sum()} points with zero gradient!"
-            + " This might lead to unreliable evaluation with gradient-based attacks."
-            + f" See {checks_doc_path} for details."
+                f"there are {(z == 0).sum()} points with zero gradient!"
+                + " This might lead to unreliable evaluation with gradient-based attacks."
+                + f" See {checks_doc_path} for details."
         )
         if logger is None:
             warnings.warn(Warning(msg))
@@ -85,12 +83,12 @@ def check_square_sr(acc_dict, alpha=0.002, logger=None):
         acc = min([v for k, v in acc_dict.items() if k != "square"])
         if acc_dict["square"] < acc - alpha:
             msg = (
-                "Square Attack has decreased the robust accuracy of"
-                + f' {acc - acc_dict["square"]:.2%}.'
-                + " This might indicate that the robustness evaluation using"
-                + " AutoAttack is unreliable. Consider running Square"
-                + " Attack with more iterations and restarts or an adaptive attack."
-                + f" See {checks_doc_path} for details."
+                    "Square Attack has decreased the robust accuracy of"
+                    + f' {acc - acc_dict["square"]:.2%}.'
+                    + " This might indicate that the robustness evaluation using"
+                    + " AutoAttack is unreliable. Consider running Square"
+                    + " Attack with more iterations and restarts or an adaptive attack."
+                    + f" See {checks_doc_path} for details."
             )
             if logger is None:
                 warnings.warn(Warning(msg))
@@ -118,9 +116,9 @@ def check_dynamic(model, x, is_tf_model=False, logger=None):
         #    print(k, v)
         if any([c > 0 for c in funcs.values()]):
             msg = (
-                "it seems to be a dynamic defense! The evaluation"
-                + " with AutoAttack might be insufficient."
-                + f" See {checks_doc_path} for details."
+                    "it seems to be a dynamic defense! The evaluation"
+                    + " with AutoAttack might be insufficient."
+                    + f" See {checks_doc_path} for details."
             )
     if not msg is None:
         if logger is None:
@@ -131,7 +129,7 @@ def check_dynamic(model, x, is_tf_model=False, logger=None):
 
 
 def check_n_classes(
-    n_cls, attacks_to_run, apgd_targets, fab_targets, logger=None
+        n_cls, attacks_to_run, apgd_targets, fab_targets, logger=None
 ):
     msg = None
     if "apgd-dlr" in attacks_to_run or "apgd-t" in attacks_to_run:
@@ -140,24 +138,24 @@ def check_n_classes(
         elif n_cls == 3:
             msg = f"with only {n_cls} classes it is not possible to use the targeted DLR or CE constrained loss!"
         elif (
-            "apgd-t" in attacks_to_run
-            or "apgd-t-constrained" in attacks_to_run
-            and apgd_targets + 1 > n_cls
+                "apgd-t" in attacks_to_run
+                or "apgd-t-constrained" in attacks_to_run
+                and apgd_targets + 1 > n_cls
         ):
             msg = (
-                f"it seems that more target classes ({apgd_targets})"
-                + f' than possible ({n_cls - 1}) are used in {"apgd-t".upper()} or in {"apgd-t-constrained".upper()}!'
+                    f"it seems that more target classes ({apgd_targets})"
+                    + f' than possible ({n_cls - 1}) are used in {"apgd-t".upper()} or in {"apgd-t-constrained".upper()}!'
             )
     if "fab-t" in attacks_to_run and fab_targets + 1 > n_cls:
         if msg is None:
             msg = (
-                f"it seems that more target classes ({apgd_targets})"
-                + f" than possible ({n_cls - 1}) are used in FAB-T!"
+                    f"it seems that more target classes ({apgd_targets})"
+                    + f" than possible ({n_cls - 1}) are used in FAB-T!"
             )
         else:
             msg += (
-                f" Also, it seems that too many target classes ({apgd_targets})"
-                + f' are used in {"fab-t".upper()} ({n_cls - 1} possible)!'
+                    f" Also, it seems that too many target classes ({apgd_targets})"
+                    + f' are used in {"fab-t".upper()} ({n_cls - 1} possible)!'
             )
     if not msg is None:
         if logger is None:

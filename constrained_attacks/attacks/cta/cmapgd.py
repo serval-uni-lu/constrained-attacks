@@ -3,11 +3,6 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-from mlc.constraints.constraints import Constraints
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-from mlc.transformers.tab_scaler import TabScaler
 from torchattacks.attack import Attack
 
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
@@ -18,6 +13,11 @@ from constrained_attacks.utils import (
     fix_immutable,
     fix_types,
 )
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.transformers.tab_scaler import TabScaler
 
 
 class CMAPGD(Attack):
@@ -34,24 +34,24 @@ class CMAPGD(Attack):
     """
 
     def __init__(
-        self,
-        constraints: Constraints,
-        scaler: TabScaler,
-        model,
-        model_objective,
-        norm="Linf",
-        eps=8 / 255,
-        steps=10,
-        n_restarts=1,
-        seed=0,
-        loss="ce",
-        eot_iter=1,
-        rho=0.75,
-        decay=1.0,
-        fix_equality_constraints_end: bool = True,
-        fix_equality_constraints_iter: bool = True,
-        eps_margin=0.01,
-        verbose=False,
+            self,
+            constraints: Constraints,
+            scaler: TabScaler,
+            model,
+            model_objective,
+            norm="Linf",
+            eps=8 / 255,
+            steps=10,
+            n_restarts=1,
+            seed=0,
+            loss="ce",
+            eot_iter=1,
+            rho=0.75,
+            decay=1.0,
+            fix_equality_constraints_end: bool = True,
+            fix_equality_constraints_iter: bool = True,
+            eps_margin=0.01,
+            verbose=False,
     ):
         super().__init__("APGD", model)
         self.constraints = constraints
@@ -130,9 +130,9 @@ class CMAPGD(Attack):
         ind = (ind_sorted[:, -1] == y).float()
 
         return -(
-            x[np.arange(x.shape[0]), y]
-            - x_sorted[:, -2] * ind
-            - x_sorted[:, -1] * (1.0 - ind)
+                x[np.arange(x.shape[0]), y]
+                - x_sorted[:, -2] * ind
+                - x_sorted[:, -1] * (1.0 - ind)
         ) / (x_sorted[:, -1] - x_sorted[:, -3] + 1e-12)
 
     def attack_single_run(self, x_in, y_in):
@@ -156,42 +156,42 @@ class CMAPGD(Attack):
         if self.norm == "Linf":
             t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
             x_adv = x.detach() + self.mutable_mask * (
-                self.eps
-                * torch.ones(
-                    [
-                        x.shape[0],
-                        1,
-                    ]
-                )
-                .to(self.device)
-                .detach()
-                * t
-                / (
-                    t.reshape([t.shape[0], -1])
-                    .abs()
-                    .max(dim=1, keepdim=True)[0]
-                    .reshape(
-                        [
-                            -1,
-                            1,
-                        ]
+                    self.eps
+                    * torch.ones(
+                [
+                    x.shape[0],
+                    1,
+                ]
+            )
+                    .to(self.device)
+                    .detach()
+                    * t
+                    / (
+                        t.reshape([t.shape[0], -1])
+                            .abs()
+                            .max(dim=1, keepdim=True)[0]
+                            .reshape(
+                            [
+                                -1,
+                                1,
+                            ]
+                        )
                     )
-                )
             )
         elif self.norm == "L2":
             t = torch.randn(x.shape).to(self.device).detach()
             x_adv = x.detach() + self.mutable_mask * (
-                self.eps
-                * torch.ones(
-                    [
-                        x.shape[0],
-                        1,
-                    ]
-                )
-                .to(self.device)
-                .detach()
-                * t
-                / ((t**2).sum(dim=(1, 2, 3), keepdim=True).sqrt() + 1e-12)
+                    self.eps
+                    * torch.ones(
+                [
+                    x.shape[0],
+                    1,
+                ]
+            )
+                    .to(self.device)
+                    .detach()
+                    * t
+                    / ((t ** 2).sum(dim=(1, 2, 3), keepdim=True).sqrt() + 1e-12)
             )
         x_adv = x_adv.clamp(0.0, 1.0)
         x_best = x_adv.clone()
@@ -217,10 +217,10 @@ class CMAPGD(Attack):
                 loss_indiv = criterion_indiv(logits, y)
                 if self.constraints.relation_constraints is not None:
                     loss_indiv = (
-                        loss_indiv
-                        - self.constraints_executor.execute(
-                            self.scaler.inverse_transform(x_adv)
-                        )
+                            loss_indiv
+                            - self.constraints_executor.execute(
+                        self.scaler.inverse_transform(x_adv)
+                    )
                     )
 
                 loss = loss_indiv.sum()
@@ -238,24 +238,24 @@ class CMAPGD(Attack):
         loss_best = loss_indiv.detach().clone()
 
         step_size = (
-            self.eps
-            * torch.ones(
-                [
-                    x.shape[0],
-                    1,
-                ]
-            )
-            .to(self.device)
-            .detach()
-            * torch.Tensor([2.0])
-            .to(self.device)
-            .detach()
-            .reshape(
-                [
-                    1,
-                    1,
-                ]
-            )
+                self.eps
+                * torch.ones(
+            [
+                x.shape[0],
+                1,
+            ]
+        )
+                .to(self.device)
+                .detach()
+                * torch.Tensor([2.0])
+                .to(self.device)
+                .detach()
+                .reshape(
+            [
+                1,
+                1,
+            ]
+        )
         )
         x_adv_old = x_adv.clone()
         counter = 0
@@ -282,7 +282,7 @@ class CMAPGD(Attack):
 
                 if self.norm == "Linf":
                     x_adv_1 = x_adv + self.mutable_mask * (
-                        step_size * torch.sign(grad)
+                            step_size * torch.sign(grad)
                     )
                     x_adv_1 = torch.clamp(
                         torch.min(
@@ -307,23 +307,23 @@ class CMAPGD(Attack):
 
                 elif self.norm == "L2":
                     x_adv_1 = x_adv + self.mutable_mask * (
-                        step_size
-                        * grad
-                        / (
-                            (grad**2 * self.mutable_mask)
-                            .sum(dim=(1, 2, 3), keepdim=True)
-                            .sqrt()
-                            + 1e-12
-                        )
+                            step_size
+                            * grad
+                            / (
+                                    (grad ** 2 * self.mutable_mask)
+                                    .sum(dim=(1, 2, 3), keepdim=True)
+                                    .sqrt()
+                                    + 1e-12
+                            )
                     )
                     x_adv_1 = torch.clamp(
                         x
                         + (x_adv_1 - x)
                         / (
-                            ((x_adv_1 - x) ** 2)
-                            .sum(dim=(1, 2, 3), keepdim=True)
-                            .sqrt()
-                            + 1e-12
+                                ((x_adv_1 - x) ** 2)
+                                .sum(dim=(1, 2, 3), keepdim=True)
+                                .sqrt()
+                                + 1e-12
                         )
                         * torch.min(
                             self.eps
@@ -340,10 +340,10 @@ class CMAPGD(Attack):
                         x
                         + (x_adv_1 - x)
                         / (
-                            ((x_adv_1 - x) ** 2)
-                            .sum(dim=(1, 2, 3), keepdim=True)
-                            .sqrt()
-                            + 1e-12
+                                ((x_adv_1 - x) ** 2)
+                                .sum(dim=(1, 2, 3), keepdim=True)
+                                .sqrt()
+                                + 1e-12
                         )
                         * torch.min(
                             self.eps
@@ -370,10 +370,10 @@ class CMAPGD(Attack):
                     loss_indiv = criterion_indiv(logits, y)
                     if self.constraints.relation_constraints is not None:
                         loss_indiv = (
-                            loss_indiv
-                            - self.constraints_executor.execute(
-                                self.scaler.inverse_transform(x_adv)
-                            )
+                                loss_indiv
+                                - self.constraints_executor.execute(
+                            self.scaler.inverse_transform(x_adv)
+                        )
                         )
                     loss = loss_indiv.sum()
 
@@ -389,7 +389,7 @@ class CMAPGD(Attack):
             acc = torch.min(acc, pred)
             acc_steps[i + 1] = acc + 0
             x_best_adv[(pred == 0).nonzero().squeeze()] = (
-                x_adv[(pred == 0).nonzero().squeeze()] + 0.0
+                    x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
 
             if self.fix_equality_constraints_iter:
@@ -427,8 +427,8 @@ class CMAPGD(Attack):
                         k3=self.thr_decr,
                     )
                     fl_reduce_no_impr = (~reduced_last_check) * (
-                        loss_best_last_check.cpu().numpy()
-                        >= loss_best.cpu().numpy()
+                            loss_best_last_check.cpu().numpy()
+                            >= loss_best.cpu().numpy()
                     )
                     fl_oscillation = ~(~fl_oscillation * ~fl_reduce_no_impr)
                     reduced_last_check = np.copy(fl_oscillation)
@@ -495,8 +495,8 @@ class CMAPGD(Attack):
                             x_clean=x_clean.cpu().numpy(),
                             y_clean=y_in.cpu().numpy(),
                             x_adv=x_adv_for_ind.clone()
-                            .detach()
-                            .numpy()[:, np.newaxis, :],
+                                      .detach()
+                                      .numpy()[:, np.newaxis, :],
                         )
                         ind_to_fool = torch.from_numpy(ind_to_fool).to(
                             self.device
