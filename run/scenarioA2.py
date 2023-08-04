@@ -1,5 +1,5 @@
 """
-Scenario A1: Whitebox attacks without knowing domain constraints
+Scenario A2: Whitebox attacks without knowing domain constraints
 Source and target models are the same; PGD, APGD, FAB, and AA evaluation
 """
 
@@ -53,6 +53,8 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
 
     # In scneario A1, the attacker is not aware of the constraints or the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
+    constraints.relation_constraints = None
+    constraints.mutable_features = None
     attack_args = {"eps": args.max_eps, "norm":"L2",**attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model,
