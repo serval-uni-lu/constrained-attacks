@@ -1,6 +1,6 @@
 """
 Scenario A1: Whitebox attacks with knowledge domain constraints
-Source and target models are the same; PGD, APGD, FAB, and AA evaluation
+Source and target models are the same; CPGD, CAPGD, CMAPGD, CFAB, and CAA evaluation
 """
 
 import os
@@ -38,7 +38,7 @@ from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 
 
 def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examples: int = 1, xp_path="./data"):
-    experiment = XP(args)
+    experiment = XP(args, project_name="scenarioA1")
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -46,14 +46,14 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
     attack_name = args.get("attack_name", "pgdl2")
     ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
-                                               "thresholds":{"distance": args.max_eps}}),
-               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()),})}
+                                  "thresholds": {"distance": args.max_eps}}),
+               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), })}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
     # In scneario A1, the attacker is not aware of the constraints or the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
-    attack_args = {"eps": args.max_eps, "norm":"L2",**attack_class[1]}
+    attack_args = {"eps": args.max_eps, "norm": "L2", **attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model,
                              fix_equality_constraints_end=False, fix_equality_constraints_iter=False,

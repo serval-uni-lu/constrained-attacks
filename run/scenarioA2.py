@@ -38,7 +38,7 @@ from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 
 
 def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examples: int = 1, xp_path="./data"):
-    experiment = XP(args)
+    experiment = XP(args, project_name="scenarioA2")
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -46,8 +46,8 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
     attack_name = args.get("attack_name", "pgdl2")
     ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
-                                               "thresholds":{"distance": args.max_eps}}),
-               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()),})}
+                                  "thresholds": {"distance": args.max_eps}}),
+               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), })}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
@@ -55,7 +55,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
     constraints = copy.deepcopy(dataset.get_constraints())
     constraints.relation_constraints = None
     constraints.mutable_features = None
-    attack_args = {"eps": args.max_eps, "norm":"L2",**attack_class[1]}
+    attack_args = {"eps": args.max_eps, "norm": "L2", **attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model,
                              fix_equality_constraints_end=False, fix_equality_constraints_iter=False,
