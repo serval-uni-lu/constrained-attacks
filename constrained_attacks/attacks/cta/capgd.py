@@ -518,7 +518,7 @@ class CAPGD(Attack):
                         )
                         ind_to_fool = torch.from_numpy(ind_to_fool).to(
                             self.device
-                        )
+                        ).long()
                     if len(ind_to_fool.shape) == 0:
                         ind_to_fool = ind_to_fool.unsqueeze(0)
                     if ind_to_fool.numel() != 0:
