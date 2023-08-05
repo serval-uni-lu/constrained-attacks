@@ -191,7 +191,7 @@ class CMAPGD(Attack):
                     .to(self.device)
                     .detach()
                     * t
-                    / ((t ** 2).sum(dim=(1, 2, 3), keepdim=True).sqrt() + 1e-12)
+                    / ((t ** 2).sum(dim=list(range(1,len(x.shape))), keepdim=True).sqrt() + 1e-12)
             )
         x_adv = x_adv.clamp(0.0, 1.0)
         x_best = x_adv.clone()
@@ -311,7 +311,7 @@ class CMAPGD(Attack):
                             * grad
                             / (
                                     (grad ** 2 * self.mutable_mask)
-                                    .sum(dim=(1, 2, 3), keepdim=True)
+                                    .sum(dim=list(range(1,len(x.shape))), keepdim=True)
                                     .sqrt()
                                     + 1e-12
                             )
@@ -321,7 +321,7 @@ class CMAPGD(Attack):
                         + (x_adv_1 - x)
                         / (
                                 ((x_adv_1 - x) ** 2)
-                                .sum(dim=(1, 2, 3), keepdim=True)
+                                .sum(dim=list(range(1,len(x.shape))), keepdim=True)
                                 .sqrt()
                                 + 1e-12
                         )
@@ -329,7 +329,7 @@ class CMAPGD(Attack):
                             self.eps
                             * torch.ones(x.shape).to(self.device).detach(),
                             ((x_adv_1 - x) ** 2)
-                            .sum(dim=(1, 2, 3), keepdim=True)
+                            .sum(dim=list(range(1,len(x.shape))), keepdim=True)
                             .sqrt(),
                         ),
                         0.0,
@@ -341,7 +341,7 @@ class CMAPGD(Attack):
                         + (x_adv_1 - x)
                         / (
                                 ((x_adv_1 - x) ** 2)
-                                .sum(dim=(1, 2, 3), keepdim=True)
+                                .sum(dim=list(range(1,len(x.shape))), keepdim=True)
                                 .sqrt()
                                 + 1e-12
                         )
@@ -349,7 +349,7 @@ class CMAPGD(Attack):
                             self.eps
                             * torch.ones(x.shape).to(self.device).detach(),
                             ((x_adv_1 - x) ** 2)
-                            .sum(dim=(1, 2, 3), keepdim=True)
+                            .sum(dim=list(range(1,len(x.shape))), keepdim=True)
                             .sqrt()
                             + 1e-12,
                         ),
