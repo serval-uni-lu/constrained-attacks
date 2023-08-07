@@ -58,7 +58,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
     attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model.wrapper_model,
-                             fix_equality_constraints_end=False, fix_equality_constraints_iter=False,
+                             fix_equality_constraints_end=True, fix_equality_constraints_iter=True,
                              model_objective=model.predict_proba, **attack_args)
 
     device = model.device
@@ -119,7 +119,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         success_rate = objective_calculator.get_success_rate(
             filter_x.detach().numpy(),
             filter_y,
-            filter_adv.unsqueeze(1).detach().numpy(),
+            filter_adv.detach().numpy(),
         )
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
