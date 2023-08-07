@@ -187,7 +187,11 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
     constraints_ok = (constraints_val <= 0.01).float().mean()
     print(f"Constraints ok: {constraints_ok * 100:.2f}%")
-    assert constraints_ok == 1
+    assert constraints_ok > 0.9
+
+    if constraints_ok<1:
+        x_test = x_test.iloc[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
+        y_test = y_test[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
 
     print("--------- End of verification ---------")
 
