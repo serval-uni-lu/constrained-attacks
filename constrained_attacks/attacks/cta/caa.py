@@ -192,4 +192,4 @@ class ConstrainedAutoAttack(Attack):
         return adv_images
 
     def get_seed(self):
-        return time.time() if self.seed is None else self.seed
+        return int(time.time()) if self.seed is None else self.seed
