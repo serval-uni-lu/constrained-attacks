@@ -53,7 +53,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
-    # In scneario A1, the attacker is not aware of the constraints or the mutable features
+    # In scneario A1, the attacker is aware of the constraints or the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
     attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
