@@ -10,6 +10,7 @@ from mlc.constraints.constraints import Constraints, get_feature_min_max
 from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
 from mlc.constraints.numpy_backend import NumpyBackend
 from mlc.constraints.relation_constraint import AndConstraint
+from mlc.utils import to_numpy_number
 
 NB_OBJECTIVES = 3
 
@@ -108,7 +109,7 @@ class AdversarialProblem(Problem):
 
         obj_constraints = self._calculate_constraints(x_adv)
 
-        F = [obj_misclassify, obj_distance, obj_constraints]
+        F = [to_numpy_number(obj_misclassify), obj_distance, obj_constraints]
 
         # --- Output
         out["F"] = np.column_stack(F)
