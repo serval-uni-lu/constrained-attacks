@@ -54,6 +54,7 @@ class Moeva2:
     ) -> None:
 
         self.classifier_class = model
+        self.model = model  ## for compatibility with multi-attack
         self.constraints = constraints
         self.norm = norm
         self.fun_distance_preprocess = fun_distance_preprocess

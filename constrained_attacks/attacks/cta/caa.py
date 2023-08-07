@@ -16,6 +16,7 @@ from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
 from mlc.constraints.pytorch_backend import PytorchBackend
 from mlc.constraints.relation_constraint import AndConstraint
 from mlc.transformers.tab_scaler import TabScaler
+from mlc.utils import to_numpy_number
 
 
 class ConstrainedMultiAttack(MultiAttack):
@@ -43,7 +44,7 @@ class ConstrainedMultiAttack(MultiAttack):
             corrects = (pre == labels[fails])
 
             success_attack_indices = self.objective_calculator.get_successful_attacks_indexes(
-                images[fails].to_numpy().astype(np.float32), labels[fails], adv_images.unsqueeze(1).detach().numpy(), )
+                to_numpy_number(images[fails]).astype(np.float32), labels[fails], to_numpy_number(adv_images.unsqueeze(1)), )
 
             final_images[success_attack_indices] = adv_images[success_attack_indices]
 
@@ -97,8 +98,8 @@ class ConstrainedAutoAttack(Attack):
     def __init__(self, constraints: Constraints, constraints_eval: Constraints, scaler: TabScaler, model,
                  model_objective,
                  fix_equality_constraints_end: bool = True, fix_equality_constraints_iter: bool = True, eps_margin=0.01,
-                 device=None, norm='Linf', eps=8 / 255, version='standard', n_classes=10, seed=None, verbose=False):
-        super().__init__('AutoAttack', model, device)
+                 norm='Linf', eps=8 / 255, version='standard', n_classes=10, seed=None, verbose=False):
+        super().__init__('AutoAttack', model)
         self.norm = norm
         self.eps = eps
         self.version = version
@@ -130,14 +131,14 @@ class ConstrainedAutoAttack(Attack):
             self.objective_calculator = None
             self.constraints_executor = None
 
-        if version == 'standard':  # ['apgd-ce', 'apgd-t', 'fab-t', 'square']
+        if version == 'standard':  # ['c-apgd-ce', 'c-fab', 'Moeva2']
             self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
                 CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
                       verbose=verbose, loss='ce', n_restarts=1,
                       fix_equality_constraints_end=fix_equality_constraints_end,
                       fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, ),
                 CFAB(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(
-                ), verbose=verbose, multi_targeted=True, n_classes=n_classes, n_restarts=1,
+                ), verbose=verbose, multi_targeted=False, n_classes=n_classes, n_restarts=1,
                      fix_equality_constraints_end=fix_equality_constraints_end,
                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
                 Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
