@@ -37,8 +37,8 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from typing import List
 
-def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data"):
-    experiment = XP(args, project_name="scenarioA1")
+def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None):
+    experiment = XP({**args,"filter_class":filter_class}, project_name="scenarioA1")
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -67,6 +67,12 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
     for batch_idx, batch in enumerate(dataloader):
         metric = create_metric("auc")
         adv_x = attack(batch[0], batch[1]).detach()
+
+        filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
+
+        if(filter_class is not None):
+            filter = batch[1] ==filter_class
+            filter_x,filter_y,filter_adv = batch[0][filter], batch[1][filter],adv_x[filter]
 
         auc = compute_metric(
             model,
@@ -105,9 +111,9 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             fun_distance_preprocess=scaler.transform,
         )
         success_rate = objective_calculator.get_success_rate(
-            x.to_numpy().astype(np.float32),
-            y,
-            adv_x.unsqueeze(1).detach().numpy(),
+            filter_x.detach().numpy(),
+            filter_y,
+            filter_adv.unsqueeze(1).detach().numpy(),
         )
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
@@ -120,7 +126,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
 
 def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
-        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = ""):
+        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "", filter_class=None):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -182,7 +188,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
-        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples)
+        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class)
 
 
 if __name__ == "__main__":
@@ -203,9 +209,10 @@ if __name__ == "__main__":
     parser.add_argument("--subset", type=int, default=1000)
     parser.add_argument("--batch_size", type=int, default=1024)
     parser.add_argument("--save_examples", type=int, default=1)
+    parser.add_argument("--filter_class", type=int, default=None)
 
     args = parser.parse_args()
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset, custom_path=args.custom_path,
+        subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class,
         batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device)

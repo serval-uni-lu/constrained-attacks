@@ -10,7 +10,7 @@ class XP(object):
         else:
             timestamp = time.time()
             args["timestamp"] = timestamp
-            experiment_name = "mcl_{}_{}_{}_{}".format(args.get("model_name", ""), args.get("dataset", ""),
+            experiment_name = "mlc_{}_{}_{}_{}".format(args.get("model_name", ""), args.get("dataset", ""),
                                                            args.get("attack_name", ""),timestamp)
             experiment = Experiment(api_key=COMET_APIKEY,
                                     project_name=project_name,
