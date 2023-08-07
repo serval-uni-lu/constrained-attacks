@@ -22,14 +22,14 @@ from constrained_attacks.objective_calculator.cache_objective_calculator import 
 from constrained_attacks.utils import fix_immutable, fix_types
 
 
-def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
+def run(dataset_name="url", model_name="deepfm") -> None:
 
     # Load data
-    dataset = load_dataset("lcld_v2_time")
+    dataset = load_dataset(dataset_name)
     x, y = dataset.get_x_y()
     splits = dataset.get_splits()
-    x_test = x.iloc[splits["test"]][:1000]
-    y_test = y[splits["test"]][:1000]
+    x_test = x.iloc[splits["train"]]
+    y_test = y[splits["train"]]
     metadata = dataset.get_metadata(only_x=True)
 
     # Scaler
@@ -77,8 +77,8 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
     model_attack = model.wrapper_model.cpu()
 
     constraints_attack = dataset.get_constraints()
-    # constraints_attack.relation_constraints = None
-    EPS = 8 / 255 * 6
+    constraints_attack.relation_constraints = None
+    EPS = 0.3
     attack = CAPGD(
         constraints_attack,
         scaler,
@@ -88,10 +88,11 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         steps=10,
         n_restarts=1,
         eps=EPS,
+        norm="L2",
         eps_margin=0.01,
-        # eps=EPS,
         loss="ce",
-        fix_equality_constraints_iter=True,
+        fix_equality_constraints_iter=False,
+        fix_equality_constraints_end=False
     )
     """
     attack = CPGDL2(
@@ -125,7 +126,6 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
         classifier=model.predict_proba,
         constraints=constraints,
         thresholds={
-            # "misclassification": 0.5,
             "distance": EPS,
             "constraints": 0.01,
         },
@@ -144,6 +144,6 @@ def run(dataset_name="lcld_v2_time", model_name="tabtransformer") -> None:
 if __name__ == "__main__":
     torch.set_warn_always(True)
 
-    for e in ["tabtransformer", "deepfm", "torchrln", "saint", "vime"]:
+    for e in ["deepfm", "tabtransformer", "torchrln", "saint", "vime"]:
         run(model_name=e)
     run()
