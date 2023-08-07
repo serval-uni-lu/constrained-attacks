@@ -7,6 +7,7 @@ import os
 import sys
 
 sys.path.append(".")
+sys.path.append("../ml-commons")
 from comet import XP
 
 import torch
@@ -78,21 +79,21 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             filter = batch[1] ==filter_class
             filter_x,filter_y,filter_adv = batch[0][filter], batch[1][filter],adv_x[filter]
 
-        auc = compute_metric(
+        test_auc = compute_metric(
             model,
             metric,
             batch[0],
             batch[1],
         )
-        experiment.log_metric("clean_auc", auc, step=batch_idx)
+        experiment.log_metric("clean_auc", test_auc, step=batch_idx)
 
-        auc = compute_metric(
+        adv_auc = compute_metric(
             model,
             metric,
-            batch[0],
+            adv_x,
             batch[1],
         )
-        experiment.log_metric("adv_auc", auc, step=batch_idx)
+        experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
         eval_constraints = copy.deepcopy(dataset.get_constraints())
         constraints_executor = ConstraintsExecutor(
@@ -114,6 +115,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             norm="L2",
             fun_distance_preprocess=scaler.transform,
         )
+        filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape)<3 else filter_adv
         success_rate = objective_calculator.get_success_rate(
             filter_x.detach().numpy(),
             filter_y,
