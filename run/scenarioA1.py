@@ -35,9 +35,9 @@ from constrained_attacks.attacks.cta.caa import ConstrainedAutoAttack
 from constrained_attacks.attacks.moeva.moeva import Moeva2
 
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
+from typing import List
 
-
-def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examples: int = 1, xp_path="./data"):
+def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data"):
     experiment = XP(args, project_name="scenarioA1")
 
     save_path = os.path.join(xp_path, experiment.get_name())
@@ -46,29 +46,41 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
     attack_name = args.get("attack_name", "pgdl2")
     ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
-                                  "thresholds": {"distance": args.max_eps}}),
+                                  "thresholds": {"distance": args.get("max_eps")}}),
                "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), })}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
     # In scneario A1, the attacker is not aware of the constraints or the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
-    attack_args = {"eps": args.max_eps, "norm": "L2", **attack_class[1]}
+    attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
-    attack = attack_class[0](constraints=constraints, scaler=scaler, model=model,
+    attack = attack_class[0](constraints=constraints, scaler=scaler, model=model.wrapper_model,
                              fix_equality_constraints_end=False, fix_equality_constraints_iter=False,
                              model_objective=model.predict_proba, **attack_args)
 
-    dataloader = FastTensorDataLoader(x.to(device), y.to(device), batch_size=args.get("batch_size"))
+    device = model.device
+
+    dataloader = FastTensorDataLoader(torch.Tensor(x.values).to(device),
+        torch.tensor(y, dtype=torch.long).to(device), batch_size=args.get("batch_size"))
 
     for batch_idx, batch in enumerate(dataloader):
         metric = create_metric("auc")
-        adv_x = attack(x, y)
+        adv_x = attack(batch[0], batch[1]).detach()
+
         auc = compute_metric(
             model,
             metric,
-            adv_x,
-            y,
+            batch[0],
+            batch[1],
+        )
+        experiment.log_metric("clean_auc", auc, step=batch_idx)
+
+        auc = compute_metric(
+            model,
+            metric,
+            batch[0],
+            batch[1],
         )
         experiment.log_metric("adv_auc", auc, step=batch_idx)
 
@@ -86,7 +98,7 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
             classifier=model.predict_proba,
             constraints=eval_constraints,
             thresholds={
-                "distance": args.max_eps,
+                "distance": args.get("max_eps"),
                 "constraints": 0.01,
             },
             norm="L2",
@@ -98,18 +110,20 @@ def run_experiment(model, dataset, scaler, x, y, args, device="cuda", save_examp
             adv_x.unsqueeze(1).detach().numpy(),
         )
 
+        experiment.log_metrics(vars(success_rate), step=batch_idx)
+
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
             adv_path = os.path.join(save_path, adv_name)
-            adv_x.detach().cpu().save(adv_path)
+            torch.save(adv_x.detach().cpu(),adv_path)
             experiment.log_asset(adv_name, adv_path)
 
 
-def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_eps: float = 0.1, subset: int = 1,
+def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = ""):
     # Load data
 
-    dataset = load_dataset("lcld_v2_time")
+    dataset = load_dataset(dataset_name)
     x, y = dataset.get_x_y()
     splits = dataset.get_splits()
     x_test = x.iloc[splits["test"]]
@@ -130,8 +144,13 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
     # Load model
     model_class = load_model(model_name)
     weight_path = f"../models/constrained/{dataset_name}_{model_name}.model" if custom_path == "" else custom_path
-    model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler)
-    model = model.to(device)
+
+    if not os.path.exists(weight_path):
+        print("{} not found. Skipping".format(weight_path))
+        return
+
+    force_device = device if device!="" else None
+    model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
     print("--------- Start of verification ---------")
     # Verify model
 
@@ -163,7 +182,7 @@ def run(dataset_name: str, model_name: str, attacks_name: list[str] = None, max_
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
-        run_experiment(model, dataset, scaler, x_test, y_test, args, device, save_examples)
+        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples)
 
 
 if __name__ == "__main__":
@@ -178,7 +197,7 @@ if __name__ == "__main__":
                         )
     parser.add_argument("--attacks_name", type=str, default="pgdl2",
                         )
-    parser.add_argument("--device", type=str, default="cuda",
+    parser.add_argument("--device", type=str, default="",
                         )
     parser.add_argument("--max_eps", type=float, default=0.1)
     parser.add_argument("--subset", type=int, default=1000)
@@ -189,4 +208,4 @@ if __name__ == "__main__":
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
         subset=args.subset, custom_path=args.custom_path,
-        batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.devie)
+        batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device)
