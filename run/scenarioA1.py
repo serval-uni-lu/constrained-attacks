@@ -36,9 +36,10 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from typing import List
+import time
 
-def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=-1):
-    experiment = XP({**args,"filter_class":filter_class}, project_name="scenarioA1")
+def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=1):
+    experiment = XP({**args,"filter_class":filter_class}, project_name="scenario_A1")
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -66,7 +67,10 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
     for batch_idx, batch in enumerate(dataloader):
         metric = create_metric("auc")
+        startt = time.time()
         adv_x = attack(batch[0], batch[1]).detach()
+        endt = time.time()
+        experiment.log_metric("attack_duration", endt-startt, step=batch_idx)
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
@@ -126,7 +130,8 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
 
 def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
-        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "", filter_class=None):
+        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "",
+        filter_class:int=None, n_jobs:int=-1):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -188,7 +193,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
-        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class)
+        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs)
 
 
 if __name__ == "__main__":
@@ -210,9 +215,10 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=1024)
     parser.add_argument("--save_examples", type=int, default=1)
     parser.add_argument("--filter_class", type=int, default=None)
+    parser.add_argument("--n_jobs", type=int, default=-1)
 
     args = parser.parse_args()
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class,
+        subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class, n_jobs=args.n_jobs,
         batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device)
