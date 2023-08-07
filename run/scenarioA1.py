@@ -37,7 +37,7 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from typing import List
 
-def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None):
+def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=-1):
     experiment = XP({**args,"filter_class":filter_class}, project_name="scenarioA1")
 
     save_path = os.path.join(xp_path, experiment.get_name())
@@ -45,7 +45,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
     attack_name = args.get("attack_name", "pgdl2")
     ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
-               "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
+               "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,"n_jobs":n_jobs,
                                   "thresholds": {"distance": args.get("max_eps")}}),
                "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), })}
 
