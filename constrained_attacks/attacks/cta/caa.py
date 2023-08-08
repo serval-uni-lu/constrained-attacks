@@ -38,25 +38,20 @@ class ConstrainedMultiAttack(MultiAttack):
         for _, attack in enumerate(self.attacks):
             adv_images = attack(images[fails], labels[fails])
 
-            outputs = self.get_logits(adv_images)
-            _, pre = torch.max(outputs.data, 1)
-
-            corrects = (pre == labels[fails])
-
             filter_adv = adv_images.unsqueeze(1) if len(adv_images.shape) < 3 else adv_images
-
-            numpy_clean =  to_numpy_number(images[fails]).astype(np.float32)
+            numpy_clean = to_numpy_number(images[fails]).astype(np.float32)
             numpy_adv = to_numpy_number(filter_adv)
             success_attack_indices, success_adversarials_indices = self.objective_calculator.get_successful_attacks_indexes(
-                numpy_clean , labels[fails],numpy_adv , max_inputs=1)
+                numpy_clean, labels[fails], numpy_adv, max_inputs=1)
 
-            clean_indices = self.objective_calculator.get_successful_attacks_clean_indexes(numpy_clean , labels[fails],numpy_adv)
-            assert np.equal( clean_indices, success_attack_indices).all()
+            clean_indices = self.objective_calculator.get_successful_attacks_clean_indexes(numpy_clean, labels[fails],
+                                                                                           numpy_adv)
+            assert np.equal(clean_indices, success_attack_indices).all()
 
             if len(success_attack_indices)>0:
                 final_images[success_attack_indices] = filter_adv[success_attack_indices][success_adversarials_indices].squeeze(1)
+                fails = fails[~success_attack_indices]
 
-            fails = torch.masked_select(fails, corrects)
             multi_atk_records.append(len(fails))
 
             if len(fails) == 0:
