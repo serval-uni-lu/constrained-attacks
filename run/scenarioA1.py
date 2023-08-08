@@ -74,7 +74,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
         if adv_x.shape == batch[0].shape:
             incorrect_index = torch.isnan(adv_x).any(1)
-            adv_x[incorrect_index] = batch[1]
+            adv_x[incorrect_index] = batch[0][incorrect_index]
 
         endt = time.time()
         experiment.log_metric("attack_duration", endt-startt, step=batch_idx)
