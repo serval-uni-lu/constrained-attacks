@@ -71,10 +71,17 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         metric = create_metric("auc")
         startt = time.time()
         adv_x = attack(batch[0], batch[1]).detach()
+
+        if adv_x.shape == batch[0].shape:
+            incorrect_index = torch.isnan(adv_x).any(1)
+            adv_x[incorrect_index] = batch[1]
+
         endt = time.time()
         experiment.log_metric("attack_duration", endt-startt, step=batch_idx)
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
+
+
 
         if(filter_class is not None):
             filter = batch[1] ==filter_class
@@ -87,14 +94,6 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             batch[1],
         )
         experiment.log_metric("clean_auc", test_auc, step=batch_idx)
-
-        adv_auc = compute_metric(
-            model,
-            metric,
-            adv_x,
-            batch[1],
-        )
-        experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
         eval_constraints = copy.deepcopy(dataset.get_constraints())
         constraints_executor = ConstraintsExecutor(
@@ -124,6 +123,14 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         )
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
+
+        adv_auc = compute_metric(
+            model,
+            metric,
+            adv_x,
+            batch[1],
+        )
+        experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
@@ -203,7 +210,13 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
-        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs)
+        try:
+            run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs)
+        except Exception as e:
+            if len(attacks_name)==1:
+                raise e
+            else:
+                print(e)
 
 
 if __name__ == "__main__":
