@@ -67,3 +67,9 @@ class XP(object):
         else:
             return ""
 
+
+    def flush(self):
+        if self.xp is not None:
+            return self.xp.flush()
+        else:
+            return None

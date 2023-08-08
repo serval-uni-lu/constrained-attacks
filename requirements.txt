@@ -54,3 +54,4 @@ typing-extensions==4.5.0 ; python_version >= "3.8" and python_version < "3.9"
 urllib3==1.26.15 ; python_version >= "3.8" and python_version < "3.9"
 uuid==1.30 ; python_version >= "3.8" and python_version < "3.9"
 zipp==3.15.0 ; python_version >= "3.8" and python_version < "3.9"
+comet-ml==3.33.8
