@@ -44,6 +44,13 @@ class ConstrainedMultiAttack(MultiAttack):
             corrects = (pre == labels[fails])
 
             filter_adv = adv_images.unsqueeze(1) if len(adv_images.shape) < 3 else adv_images
+
+            #if isinstance(attack, Moeva2):
+            #    unsuccess_attack_indices = self.objective_calculator.get_unsuccessful_attacks_clean_indexes(
+            #        to_numpy_number(images[fails]).astype(np.float32), labels[fails], to_numpy_number(filter_adv), )
+            #    final_images[~unsuccess_attack_indices] = adv_images[~unsuccess_attack_indices]
+            #else:
+
             success_attack_indices = self.objective_calculator.get_successful_attacks_indexes(
                 to_numpy_number(images[fails]).astype(np.float32), labels[fails], to_numpy_number(filter_adv), )
 

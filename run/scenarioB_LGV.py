@@ -1,5 +1,5 @@
 """
-Scenario B1: Surrogate based attack
+Scenario B_LGV: Surrogate based attack
 Source and target models are different; CPGD, CAPGD, CFAB, MoeVa2, and CAA evaluation
 """
 
@@ -97,8 +97,6 @@ def run_experiment(model_source, model_target, dataset, scaler, x, y, args, devi
             y,
             adv_x.unsqueeze(1).detach().numpy(),
         )
-
-        experiment.log_metric("success_rate", success_rate, step=batch_idx)
 
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
