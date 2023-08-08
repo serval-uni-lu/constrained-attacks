@@ -88,14 +88,15 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         if(filter_class is not None):
             filter = batch[1] ==filter_class
             filter_x,filter_y,filter_adv = batch[0][filter], batch[1][filter],adv_x[filter]
-
-        test_auc = compute_metric(
-            model,
-            metric,
-            batch[0],
-            batch[1],
-        )
-        experiment.log_metric("clean_auc", test_auc, step=batch_idx)
+        else:
+            #we can't compute AUC if we filter one class
+            test_auc = compute_metric(
+                model,
+                metric,
+                batch[0],
+                batch[1],
+            )
+            experiment.log_metric("clean_auc", test_auc, step=batch_idx)
 
         eval_constraints = copy.deepcopy(dataset.get_constraints())
         constraints_executor = ConstraintsExecutor(
@@ -134,14 +135,16 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
                 batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
 
-            adv_all = batch[0].detach().clone()
-            adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all, success_adversarials_indices_all, :]
-            adv_auc = compute_metric(
-                model,
-                metric,
-                adv_all,
-                batch[1],
-            )
+            if (filter_class is None):
+                adv_all = batch[0].detach().clone()
+                adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all, success_adversarials_indices_all, :]
+                adv_auc = compute_metric(
+                    model,
+                    metric,
+                    adv_all,
+                    batch[1],
+                )
+                experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
         else:
             success_rate = objective_calculator.get_success_rate(
                 filter_x.detach().numpy(),
@@ -149,15 +152,17 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
                 filter_adv.detach().numpy(),
             )
 
-            adv_auc = compute_metric(
-                model,
-                metric,
-                adv_x,
-                batch[1],
-            )
+            if (filter_class is None):
+                adv_auc = compute_metric(
+                    model,
+                    metric,
+                    adv_x,
+                    batch[1],
+                )
+                experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
-        experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
+
 
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
