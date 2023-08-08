@@ -142,8 +142,6 @@ class ConstrainedAutoAttack(Attack):
 
         if version == 'standard':  # ['c-apgd-ce', 'c-fab', 'Moeva2']
             self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
-                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
-                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
                 CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
                       verbose=verbose, loss='ce', n_restarts=1,
                       fix_equality_constraints_end=fix_equality_constraints_end,
@@ -152,7 +150,8 @@ class ConstrainedAutoAttack(Attack):
                 ), verbose=verbose, multi_targeted=False, n_classes=n_classes, n_restarts=1,
                      fix_equality_constraints_end=fix_equality_constraints_end,
                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
-
+                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
+                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
             ])
 
         # ['apgd-ce', 'apgd-dlr', 'fab', 'square', 'apgd-t', 'fab-t']

@@ -118,11 +118,23 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             fun_distance_preprocess=scaler.transform,
         )
         filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape)<3 else filter_adv
-        success_rate = objective_calculator.get_success_rate(
-            filter_x.detach().numpy(),
-            filter_y,
-            filter_adv.detach().numpy(),
-        )
+        if len(filter_adv.shape)==3:
+            success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
+                filter_x.detach().numpy(), filter_y, filter_adv.detach().numpy(), max_inputs=1)
+
+            filtered_ = filter_x.detach().clone()
+            filtered_[success_attack_indices] = filter_adv[success_attack_indices, success_adversarials_indices, :]
+            success_rate = objective_calculator.get_success_rate(
+                filtered_.numpy(),
+                filter_y,
+                filter_adv.detach().numpy(),
+            )
+        else:
+            success_rate = objective_calculator.get_success_rate(
+                filter_x.detach().numpy(),
+                filter_y,
+                filter_adv.detach().numpy(),
+            )
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
 
