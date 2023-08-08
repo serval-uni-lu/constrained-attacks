@@ -40,8 +40,10 @@ from sklearn.model_selection import train_test_split
 from typing import List
 import time
 
+PROJECT_NAME = "scenario_A1_v2"
+
 def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=1):
-    experiment = XP({**args,"filter_class":filter_class}, project_name="scenario_A1")
+    experiment = XP({**args,"filter_class":filter_class}, project_name=PROJECT_NAME)
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -50,7 +52,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
     ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,"n_jobs":n_jobs,
                                   "thresholds": {"distance": args.get("max_eps")}}),
-               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), })}
+               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), "n_jobs":n_jobs})}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
