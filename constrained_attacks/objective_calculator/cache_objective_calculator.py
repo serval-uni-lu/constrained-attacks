@@ -169,19 +169,7 @@ class ObjectiveCalculator:
         constraints_respected = objectives_eval.constraints <= 0
 
         misclassified = objectives_eval.misclassification <= 0
-        # # if y_clean.max() == 1 and self.thresholds.
 
-        # if (y_clean.max() == 1) and (
-        #     self.thresholds["misclassification"] is not None
-        # ):
-        #     y_pred = (
-        #         objectives_eval.classification[..., 1]
-        #         >= self.thresholds["misclassification"]
-        #     ).astype(int)
-        # else:
-        #     y_pred = np.argmax(objectives_eval.classification, axis=-1)
-
-        # misclassified = y_pred != y_clean[:, np.newaxis]
         distance = objectives_eval.distance <= self.thresholds["distance"]
 
         return ObjectiveRespected(
@@ -288,6 +276,22 @@ class ObjectiveCalculator:
 
         return index_not_ok
 
+    def get_successful_attacks_clean_indexes(
+        self,
+        x_clean: NDNumber,
+        y_clean: NDInt,
+        x_adv: NDNumber,
+        recompute: bool = True,
+    ):
+        index_ok = np.arange(x_clean.shape[0])
+        index_ok = index_ok[
+            self.get_objectives_respected_clean_mask(
+                x_clean, y_clean, x_adv, recompute
+            ).mdc
+        ]
+
+        return index_ok
+
     def get_successful_attacks_indexes(
         self,
         x_clean: NDNumber,
@@ -310,7 +314,7 @@ class ObjectiveCalculator:
         objectives_mdc = objectives_respected.mdc
 
         metric = objectives_measures.__dict__[preferred_metrics]
-        if order == "asc":
+        if order == "desc":
             metric = -metric
 
         indices = select_k_best(
@@ -338,7 +342,7 @@ def select_k_best(
     # metric = np.column_stack((metric, metric - 1, metric - 2))
     # filter_ok = np.column_stack((filter_ok, filter_ok - 1, filter_ok - 2))
 
-    filter_best = np.ones(metric.shape, dtype=np.bool_)
+    filter_best = np.zeros(metric.shape, dtype=np.bool_)
 
     # Replace invalid elements with infinity
     filtered_metric = np.where(filter_ok, metric, np.inf)
@@ -346,7 +350,11 @@ def select_k_best(
     # Find the indices of the k smallest values for each B dimension
     top_k_indices = np.argpartition(filtered_metric, k - 1, axis=1)[:, :k]
 
-    filter_best[top_k_indices] = False
+    first_axis = np.repeat(
+        np.arange(top_k_indices.shape[0]), top_k_indices.shape[1]
+    )
+
+    filter_best[first_axis, top_k_indices.flatten()] = True
 
     out = np.where(filter_best * filter_ok)
 
