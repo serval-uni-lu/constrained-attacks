@@ -45,16 +45,16 @@ class ConstrainedMultiAttack(MultiAttack):
 
             filter_adv = adv_images.unsqueeze(1) if len(adv_images.shape) < 3 else adv_images
 
-            #if isinstance(attack, Moeva2):
-            #    unsuccess_attack_indices = self.objective_calculator.get_unsuccessful_attacks_clean_indexes(
-            #        to_numpy_number(images[fails]).astype(np.float32), labels[fails], to_numpy_number(filter_adv), )
-            #    final_images[~unsuccess_attack_indices] = adv_images[~unsuccess_attack_indices]
-            #else:
+            numpy_clean =  to_numpy_number(images[fails]).astype(np.float32)
+            numpy_adv = to_numpy_number(filter_adv)
+            success_attack_indices, success_adversarials_indices = self.objective_calculator.get_successful_attacks_indexes(
+                numpy_clean , labels[fails],numpy_adv , max_inputs=1)
 
-            success_attack_indices = self.objective_calculator.get_successful_attacks_indexes(
-                to_numpy_number(images[fails]).astype(np.float32), labels[fails], to_numpy_number(filter_adv), )
+            clean_indices = self.objective_calculator.get_successful_attacks_clean_indexes(numpy_clean , labels[fails],numpy_adv)
+            assert np.equal( clean_indices, success_attack_indices).all()
 
-            final_images[success_attack_indices] = adv_images[success_attack_indices]
+            if len(success_attack_indices)>0:
+                final_images[success_attack_indices] = filter_adv[success_attack_indices][success_adversarials_indices].squeeze(1)
 
             fails = torch.masked_select(fails, corrects)
             multi_atk_records.append(len(fails))
@@ -104,7 +104,7 @@ class ConstrainedAutoAttack(Attack):
     """
 
     def __init__(self, constraints: Constraints, constraints_eval: Constraints, scaler: TabScaler, model,
-                 model_objective,
+                 model_objective, n_jobs=-1,
                  fix_equality_constraints_end: bool = True, fix_equality_constraints_iter: bool = True, eps_margin=0.01,
                  norm='Linf', eps=8 / 255, version='standard', n_classes=10, seed=None, verbose=False):
         super().__init__('AutoAttack', model)
@@ -121,6 +121,7 @@ class ConstrainedAutoAttack(Attack):
         self.eps_margin = eps_margin
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
+        self.n_jobs=n_jobs
 
         if self.constraints_eval.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -141,6 +142,8 @@ class ConstrainedAutoAttack(Attack):
 
         if version == 'standard':  # ['c-apgd-ce', 'c-fab', 'Moeva2']
             self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
+                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
+                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
                 CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
                       verbose=verbose, loss='ce', n_restarts=1,
                       fix_equality_constraints_end=fix_equality_constraints_end,
@@ -149,8 +152,7 @@ class ConstrainedAutoAttack(Attack):
                 ), verbose=verbose, multi_targeted=False, n_classes=n_classes, n_restarts=1,
                      fix_equality_constraints_end=fix_equality_constraints_end,
                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
-                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
-                       verbose=verbose, fun_distance_preprocess=scaler.transform),
+
             ])
 
         # ['apgd-ce', 'apgd-dlr', 'fab', 'square', 'apgd-t', 'fab-t']
@@ -165,7 +167,7 @@ class ConstrainedAutoAttack(Attack):
                      fix_equality_constraints_end=fix_equality_constraints_end,
                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
                 Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
-                       verbose=verbose, fun_distance_preprocess=scaler.transform),
+                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
                 CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
                       verbose=verbose, loss='ce', n_restarts=1,
                       fix_equality_constraints_end=fix_equality_constraints_end,
