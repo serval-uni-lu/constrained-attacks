@@ -49,8 +49,10 @@ class ConstrainedMultiAttack(MultiAttack):
             assert np.equal(clean_indices, success_attack_indices).all()
 
             if len(success_attack_indices)>0:
-                final_images[success_attack_indices] = filter_adv[success_attack_indices][success_adversarials_indices].squeeze(1)
-                fails = fails[~success_attack_indices]
+                final_images[success_attack_indices] = filter_adv[success_attack_indices,success_adversarials_indices,:].squeeze(1)
+                mask = torch.ones_like(fails)
+                mask[success_attack_indices] = 0
+                fails = fails.masked_select(mask.bool())
 
             multi_atk_records.append(len(fails))
 

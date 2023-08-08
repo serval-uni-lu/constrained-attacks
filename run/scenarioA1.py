@@ -171,6 +171,9 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         class_imbalance = np.unique(y_test, return_counts=True)
         print("class imbalance",class_imbalance)
 
+    else:
+        subset =  len(y_test)
+
 
     metadata = dataset.get_metadata(only_x=True)
 
