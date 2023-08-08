@@ -36,6 +36,7 @@ from constrained_attacks.attacks.cta.caa import ConstrainedAutoAttack
 from constrained_attacks.attacks.moeva.moeva import Moeva2
 
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
+from sklearn.model_selection import train_test_split
 from typing import List
 import time
 
@@ -143,8 +144,10 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     y_test = y[splits["test"]]
 
     if subset > 0:
-        x_test = x_test[:subset]
-        y_test = y_test[:subset]
+        _,x_test,_, y_test = train_test_split(x_test, y_test, test_size = subset, stratify=y_test, random_state=42)
+        class_imbalance = np.unique(y_test, return_counts=True)
+        print("class imbalance",class_imbalance)
+
 
     metadata = dataset.get_metadata(only_x=True)
 
@@ -192,6 +195,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     if constraints_ok<1:
         x_test = x_test.iloc[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
         y_test = y_test[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
+
 
     print("--------- End of verification ---------")
 
