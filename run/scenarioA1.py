@@ -151,7 +151,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     splits = dataset.get_splits()
     x_test = x.iloc[splits["test"]]
     y_test = y[splits["test"]]
-
+    subset = min(subset,len(x_test))
     if subset > 0:
         _,x_test,_, y_test = train_test_split(x_test, y_test, test_size = subset, stratify=y_test, random_state=42)
         class_imbalance = np.unique(y_test, return_counts=True)

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 DEVICES=0
-SUBSET=10000
+SUBSET=1000
 BATCH_SIZE=1024
 MAX_EPS=0.5
 ATTACK="pgdl2+apgd+fab+moeva+caa"
