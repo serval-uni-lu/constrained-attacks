@@ -119,6 +119,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             fun_distance_preprocess=scaler.transform,
         )
         filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape)<3 else filter_adv
+        adv_x = adv_x.unsqueeze(1) if len(adv_x.shape)<3 else adv_x
         if len(filter_adv.shape)==3:
             # for example for Moeva, we need first to extract the successful examples
             success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
@@ -132,11 +133,10 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
                 filter_adv.detach().numpy(),
             )
 
-            success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
-                batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
-
             if (filter_class is None):
                 adv_all = batch[0].detach().clone()
+                success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
+                    batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
                 adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all, success_adversarials_indices_all, :]
                 adv_auc = compute_metric(
                     model,

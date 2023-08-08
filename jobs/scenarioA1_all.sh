@@ -14,11 +14,11 @@ do
   do
     MODEL_PATH="../models/mlc/best_models/${MODEL}_${DATASET}_default.model"
     CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
+    #CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
 
     MODEL_PATH="../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
     CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
+    #CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA1.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
 
   done
 done
