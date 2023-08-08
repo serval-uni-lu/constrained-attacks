@@ -4,11 +4,11 @@ DEVICES=0
 SUBSET=1000
 BATCH_SIZE=1024
 MAX_EPS=0.5
-ATTACK="pgdl2+apgd+moeva+caa"
+ATTACK="pgdl2+apgd+caa"
 FILTER_CLASS=1
 DEVICE="cpu"
 
-for DATASET in ctu_13_neris lcld_v2_iid malware wids url
+for DATASET in url ctu_13_neris lcld_v2_iid malware wids
 do
   for MODEL in tabtransformer deepfm torchrln vime
   do

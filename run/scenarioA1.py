@@ -40,7 +40,7 @@ from sklearn.model_selection import train_test_split
 from typing import List
 import time
 
-PROJECT_NAME = "scenario_A1_v2"
+PROJECT_NAME = "scenario_A1_v3"
 
 def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=1):
     experiment = XP({**args,"filter_class":filter_class}, project_name=PROJECT_NAME)
@@ -119,6 +119,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         )
         filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape)<3 else filter_adv
         if len(filter_adv.shape)==3:
+            # for example for Moeva, we need first to extract the successful examples
             success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
                 filter_x.detach().numpy(), filter_y, filter_adv.detach().numpy(), max_inputs=1)
 
@@ -129,6 +130,18 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
                 filter_y,
                 filter_adv.detach().numpy(),
             )
+
+            success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
+                batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
+
+            adv_all = batch[0].detach().clone()
+            adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all, success_adversarials_indices_all, :]
+            adv_auc = compute_metric(
+                model,
+                metric,
+                adv_all,
+                batch[1],
+            )
         else:
             success_rate = objective_calculator.get_success_rate(
                 filter_x.detach().numpy(),
@@ -136,14 +149,14 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
                 filter_adv.detach().numpy(),
             )
 
-        experiment.log_metrics(vars(success_rate), step=batch_idx)
+            adv_auc = compute_metric(
+                model,
+                metric,
+                adv_x,
+                batch[1],
+            )
 
-        adv_auc = compute_metric(
-            model,
-            metric,
-            adv_x,
-            batch[1],
-        )
+        experiment.log_metrics(vars(success_rate), step=batch_idx)
         experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
         if save_examples:
