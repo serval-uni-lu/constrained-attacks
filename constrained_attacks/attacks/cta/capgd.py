@@ -355,7 +355,7 @@ class CAPGD(Attack):
                         0.0,
                         1.0,
                     )
-                    x_adv_1 = x_adv + (x_adv_1 - x_adv) * a + grad2 * (1 - a)
+                    x_adv_1 = x_adv + self.mutable_mask * (x_adv_1 - x_adv) * a +self.mutable_mask * grad2 * (1 - a)
                     x_adv_1 = torch.clamp(
                         x
                         + (x_adv_1 - x)
