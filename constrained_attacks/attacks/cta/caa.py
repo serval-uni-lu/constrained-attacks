@@ -36,20 +36,43 @@ class ConstrainedMultiAttack(MultiAttack):
         multi_atk_records = [batch_size]
 
         for _, attack in enumerate(self.attacks):
+            
+            # Attack the one that failed so far
             adv_images = attack(images[fails], labels[fails])
 
-            filter_adv = adv_images.unsqueeze(1) if len(adv_images.shape) < 3 else adv_images
+            # Correct shape
+            filter_adv = (
+                adv_images.unsqueeze(1)
+                if len(adv_images.shape) < 3
+                else adv_images
+            )
+            # Type conversion
             numpy_clean = to_numpy_number(images[fails]).astype(np.float32)
             numpy_adv = to_numpy_number(filter_adv)
-            success_attack_indices, success_adversarials_indices = self.objective_calculator.get_successful_attacks_indexes(
-                numpy_clean, labels[fails], numpy_adv, max_inputs=1)
+            
+            # Indexes of the successful attacks
+            (
+                success_attack_indices,
+                success_adversarials_indices,
+            ) = self.objective_calculator.get_successful_attacks_indexes(
+                numpy_clean, labels[fails], numpy_adv, max_inputs=1
+            )
 
-            clean_indices = self.objective_calculator.get_successful_attacks_clean_indexes(numpy_clean, labels[fails],
-                                                                                           numpy_adv)
+            # Sanity check start, can ignore for debugging
+            clean_indices = (
+                self.objective_calculator.get_successful_attacks_clean_indexes(
+                    numpy_clean, labels[fails], numpy_adv
+                )
+            )
             assert np.equal(clean_indices, success_attack_indices).all()
+            # Sanity check end
 
-            if len(success_attack_indices)>0:
-                final_images[success_attack_indices] = filter_adv[success_attack_indices,success_adversarials_indices,:].squeeze(1)
+            # If we found adversarials
+            if len(success_attack_indices) > 0:
+                   
+                final_images[fails[success_attack_indices]] = filter_adv[
+                    success_attack_indices, success_adversarials_indices, :
+                ].squeeze(1)
                 mask = torch.ones_like(fails)
                 mask[success_attack_indices] = 0
                 fails = fails.masked_select(mask.bool())
@@ -100,25 +123,39 @@ class ConstrainedAutoAttack(Attack):
 
     """
 
-    def __init__(self, constraints: Constraints, constraints_eval: Constraints, scaler: TabScaler, model,
-                 model_objective, n_jobs=-1,
-                 fix_equality_constraints_end: bool = True, fix_equality_constraints_iter: bool = True, eps_margin=0.01,
-                 norm='Linf', eps=8 / 255, version='standard', n_classes=10, seed=None, verbose=False):
-        super().__init__('AutoAttack', model)
+    def __init__(
+        self,
+        constraints: Constraints,
+        constraints_eval: Constraints,
+        scaler: TabScaler,
+        model,
+        model_objective,
+        n_jobs=-1,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
+        eps_margin=0.01,
+        norm="Linf",
+        eps=8 / 255,
+        version="standard",
+        n_classes=10,
+        seed=None,
+        verbose=False,
+    ):
+        super().__init__("AutoAttack", model)
         self.norm = norm
         self.eps = eps
         self.version = version
         self.n_classes = n_classes
         self.seed = seed
         self.verbose = verbose
-        self.supported_mode = ['default']
+        self.supported_mode = ["default"]
         self.constraints = constraints
         self.constraints_eval = constraints_eval
         self.scaler = scaler
         self.eps_margin = eps_margin
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
-        self.n_jobs=n_jobs
+        self.n_jobs = n_jobs
 
         if self.constraints_eval.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -137,51 +174,154 @@ class ConstrainedAutoAttack(Attack):
             self.objective_calculator = None
             self.constraints_executor = None
 
-        if version == 'standard':  # ['c-apgd-ce', 'c-fab', 'Moeva2']
-            self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
-                CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
-                      verbose=verbose, loss='ce', n_restarts=1,
-                      fix_equality_constraints_end=fix_equality_constraints_end,
-                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, ),
-                CFAB(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(
-                ), verbose=verbose, multi_targeted=False, n_classes=n_classes, n_restarts=1,
-                     fix_equality_constraints_end=fix_equality_constraints_end,
-                     fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
-                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
-                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
-            ])
+        if version == "standard":  # ['c-apgd-ce', 'c-fab', 'Moeva2']
+            self._autoattack = ConstrainedMultiAttack(
+                self.objective_calculator,
+                [
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    CFAB(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        multi_targeted=False,
+                        n_classes=n_classes,
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    Moeva2(
+                        model,
+                        constraints=constraints,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        fun_distance_preprocess=scaler.transform,
+                        n_jobs=n_jobs,
+                    ),
+                ],
+            )
 
         # ['apgd-ce', 'apgd-dlr', 'fab', 'square', 'apgd-t', 'fab-t']
-        elif version == 'plus':
-            self._autoattack = ConstrainedMultiAttack(self.objective_calculator, [
-                CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
-                      verbose=verbose, loss='ce',
-                      fix_equality_constraints_end=fix_equality_constraints_end,
-                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, n_restarts=5),
-                CFAB(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(
-                ), verbose=verbose, n_classes=n_classes, n_restarts=1,
-                     fix_equality_constraints_end=fix_equality_constraints_end,
-                     fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
-                Moeva2(model, constraints=constraints, eps=eps, norm=norm, seed=self.get_seed(),
-                       verbose=verbose, fun_distance_preprocess=scaler.transform, n_jobs=n_jobs),
-                CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
-                      verbose=verbose, loss='ce', n_restarts=1,
-                      fix_equality_constraints_end=fix_equality_constraints_end,
-                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, ),
-                CFAB(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(
-                ), verbose=verbose, multi_targeted=True, n_classes=n_classes, n_restarts=1,
-                     fix_equality_constraints_end=fix_equality_constraints_end,
-                     fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin),
-            ])
+        elif version == "plus":
+            self._autoattack = ConstrainedMultiAttack(
+                self.objective_calculator,
+                [
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                        n_restarts=5,
+                    ),
+                    CFAB(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        n_classes=n_classes,
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    Moeva2(
+                        model,
+                        constraints=constraints,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        fun_distance_preprocess=scaler.transform,
+                        n_jobs=n_jobs,
+                    ),
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    CFAB(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        multi_targeted=True,
+                        n_classes=n_classes,
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                ],
+            )
 
-        elif version == 'rand':
-            self._autoattack = MultiAttack([
-                CAPGD(constraints, scaler, model, model_objective, eps=eps, norm=norm, seed=self.get_seed(),
-                      verbose=verbose, loss='ce',
-                      fix_equality_constraints_end=fix_equality_constraints_end,
-                      fix_equality_constraints_iter=fix_equality_constraints_iter, eps_margin=eps_margin, eot_iter=20,
-                      n_restarts=1),
-            ])
+        elif version == "rand":
+            self._autoattack = MultiAttack(
+                [
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                        eot_iter=20,
+                        n_restarts=1,
+                    ),
+                ]
+            )
 
         else:
             raise ValueError("Not valid version. ['standard', 'plus', 'rand']")
