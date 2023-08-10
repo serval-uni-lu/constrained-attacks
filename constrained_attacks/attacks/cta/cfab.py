@@ -130,16 +130,17 @@ class CFAB(Attack):
         r"""
         Overridden.
         """
+        images_in = images.clone().detach().to(images.device)
         images = self.scaler.transform(images)
         images = images.clone().detach().to(self.device)
         # if labels is not None:
         labels = labels.clone().detach().to(self.device)
         adv_images = self.perturb(images, labels)
 
-        self.scaler.inverse_transform(adv_images)
+        adv_images = self.scaler.inverse_transform(adv_images)
 
-        adv = fix_types(images, adv_images, self.constraints.feature_types)
-        adv = fix_immutable(images, adv, self.constraints.mutable_features)
+        adv = fix_types(images_in, adv_images, self.constraints.feature_types)
+        adv = fix_immutable(images_in, adv, self.constraints.mutable_features)
 
         if self.fix_equality_constraints_end:
             adv = fix_equality_constraints(self.constraints, adv)
