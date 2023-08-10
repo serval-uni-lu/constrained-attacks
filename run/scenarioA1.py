@@ -40,24 +40,29 @@ from sklearn.model_selection import train_test_split
 from typing import List
 import time
 
-PROJECT_NAME = "scenario_A1_v3"
 
-def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data", filter_class=None, n_jobs=1):
-    experiment = XP({**args,"filter_class":filter_class}, project_name=PROJECT_NAME)
+def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data",
+                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None, project_name="scenario_A1_v3"):
+    experiment = XP({**args, "filter_class": filter_class}, project_name=project_name)
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
 
     attack_name = args.get("attack_name", "pgdl2")
-    ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
-               "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,"n_jobs":n_jobs,
-                                  "thresholds": {"distance": args.get("max_eps")}}),
-               "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(dataset.get_constraints()), "n_jobs":n_jobs})}
+
+    if constraints is None:
+        constraints = dataset.get_constraints()
+
+    if ATTACKS is None:
+        ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
+                   "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform, "n_jobs": n_jobs,
+                                      "thresholds": {"distance": args.get("max_eps")}}),
+                   "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(constraints), "n_jobs": n_jobs})}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
     # In scneario A1, the attacker is aware of the constraints or the mutable features
-    constraints = copy.deepcopy(dataset.get_constraints())
+    constraints = copy.deepcopy(constraints)
     attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
     attack = attack_class[0](constraints=constraints, scaler=scaler, model=model.wrapper_model,
@@ -67,7 +72,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
     device = model.device
 
     dataloader = FastTensorDataLoader(torch.Tensor(x.values).to(device),
-        torch.tensor(y, dtype=torch.long).to(device), batch_size=args.get("batch_size"))
+                                      torch.tensor(y, dtype=torch.long).to(device), batch_size=args.get("batch_size"))
 
     for batch_idx, batch in enumerate(dataloader):
         metric = create_metric("auc")
@@ -79,19 +84,17 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             adv_x[incorrect_index] = batch[0][incorrect_index]
 
         endt = time.time()
-        experiment.log_metric("attack_duration", endt-startt, step=batch_idx)
+        experiment.log_metric("attack_duration", endt - startt, step=batch_idx)
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
-
-
-        if(filter_class is not None):
-            filter = batch[1] ==filter_class
-            filter_x,filter_y,filter_adv = batch[0][filter], batch[1][filter],adv_x[filter]
+        if (filter_class is not None):
+            filter = batch[1] == filter_class
+            filter_x, filter_y, filter_adv = batch[0][filter], batch[1][filter], adv_x[filter]
         else:
-            #we can't compute AUC if we filter one class
+            # we can't compute AUC if we filter one class
             test_auc = compute_metric(
-                model,
+                model_eval,
                 metric,
                 batch[0],
                 batch[1],
@@ -109,7 +112,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
         experiment.log_metric("adv_constraints", constraints_ok, step=batch_idx)
 
         objective_calculator = ObjectiveCalculator(
-            classifier=model.predict_proba,
+            classifier=model_eval.predict_proba,
             constraints=eval_constraints,
             thresholds={
                 "distance": args.get("max_eps"),
@@ -118,9 +121,9 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
             norm="L2",
             fun_distance_preprocess=scaler.transform,
         )
-        filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape)<3 else filter_adv
-        adv_x = adv_x.unsqueeze(1) if len(adv_x.shape)<3 else adv_x
-        if len(filter_adv.shape)==3:
+        filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape) < 3 else filter_adv
+        adv_x = adv_x.unsqueeze(1) if len(adv_x.shape) < 3 else adv_x
+        if len(filter_adv.shape) == 3:
             # for example for Moeva, we need first to extract the successful examples
             success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
                 filter_x.detach().numpy(), filter_y, filter_adv.detach().numpy(), max_inputs=1)
@@ -137,9 +140,10 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
                 adv_all = batch[0].detach().clone()
                 success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
                     batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
-                adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all, success_adversarials_indices_all, :]
+                adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all,
+                                                      success_adversarials_indices_all, :]
                 adv_auc = compute_metric(
-                    model,
+                    model_eval,
                     metric,
                     adv_all,
                     batch[1],
@@ -154,7 +158,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
             if (filter_class is None):
                 adv_auc = compute_metric(
-                    model,
+                    model_eval,
                     metric,
                     adv_x,
                     batch[1],
@@ -163,11 +167,10 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
         experiment.log_metrics(vars(success_rate), step=batch_idx)
 
-
         if save_examples:
             adv_name = "adv_{}.pt".format(batch_idx)
             adv_path = os.path.join(save_path, adv_name)
-            torch.save(adv_x.detach().cpu(),adv_path)
+            torch.save(adv_x.detach().cpu(), adv_path)
             experiment.log_asset(adv_name, adv_path)
 
         experiment.flush()
@@ -175,7 +178,7 @@ def run_experiment(model, dataset, scaler, x, y, args, save_examples: int = 1, x
 
 def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "",
-        filter_class:int=None, n_jobs:int=-1):
+        filter_class: int = None, n_jobs: int = -1):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -185,13 +188,12 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     y_test = y[splits["test"]]
 
     if subset > 0 and subset < len(y_test):
-        _,x_test,_, y_test = train_test_split(x_test, y_test, test_size = subset, stratify=y_test, random_state=42)
+        _, x_test, _, y_test = train_test_split(x_test, y_test, test_size=subset, stratify=y_test, random_state=42)
         class_imbalance = np.unique(y_test, return_counts=True)
-        print("class imbalance",class_imbalance)
+        print("class imbalance", class_imbalance)
 
     else:
-        subset =  len(y_test)
-
+        subset = len(y_test)
 
     metadata = dataset.get_metadata(only_x=True)
 
@@ -209,7 +211,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         print("{} not found. Skipping".format(weight_path))
         return
 
-    force_device = device if device!="" else None
+    force_device = device if device != "" else None
     model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
     print("--------- Start of verification ---------")
     # Verify model
@@ -236,10 +238,9 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     print(f"Constraints ok: {constraints_ok * 100:.2f}%")
     assert constraints_ok > 0.9
 
-    if constraints_ok<1:
+    if constraints_ok < 1:
         x_test = x_test.iloc[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
         y_test = y_test[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
-
 
     print("--------- End of verification ---------")
 
