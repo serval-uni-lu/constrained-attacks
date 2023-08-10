@@ -98,9 +98,10 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     print("--------- End of verification ---------")
 
     # In scneario A2, the attacker is not aware of the constraints or the mutable features
+    # He knows the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
     constraints.relation_constraints = None
-    constraints.mutable_features = None
+    # constraints.mutable_features = None
 
     for attack_name in attacks_name:
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
