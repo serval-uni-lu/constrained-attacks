@@ -81,6 +81,7 @@ def fix_types(
 
     return x_adv
 
+
 def fix_immutable(
     x_clean: torch.Tensor, x_adv: torch.Tensor, mutable: pd.Series
 ) -> torch.Tensor:
@@ -94,11 +95,13 @@ def fix_immutable(
     if x_adv_ndim == 2:
         x_adv = x_adv.unsqueeze(1)
 
-    if not torch.isclose(x_clean[:, :, immutable_indices], x_adv[:, :, immutable_indices]).all():
+    if not torch.isclose(
+        x_clean[:, :, immutable_indices], x_adv[:, :, immutable_indices]
+    ).all():
         warnings.warn("Mutable indices are not equal nor close.")
         print("Mutable indices are not equal")
         print("Fixing mutable indices")
-        
+
     x_adv[:, :, immutable_indices] = x_clean[:, :, immutable_indices]
 
     if x_adv_ndim == 2:
@@ -107,7 +110,11 @@ def fix_immutable(
     return x_adv
 
 
-def fix_equality_constraints(constraints: Constraints, x_adv: torch.Tensor) -> torch.Tensor:
+def fix_equality_constraints(
+    constraints: Constraints, x_adv: torch.Tensor
+) -> torch.Tensor:
+    if constraints.relation_constraints is None:
+        return x_adv
     constraints_to_fix = [
         c
         for c in constraints.relation_constraints
@@ -122,8 +129,7 @@ def fix_equality_constraints(constraints: Constraints, x_adv: torch.Tensor) -> t
         fix_constraints=constraints_to_fix,
         feature_names=constraints.feature_names,
     )
-    
+
     x_adv = constraints_fixer.fix(x_adv)
-    
+
     return x_adv
-    
