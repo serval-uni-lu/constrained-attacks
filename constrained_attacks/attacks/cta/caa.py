@@ -24,6 +24,23 @@ class ConstrainedMultiAttack(MultiAttack):
         super(ConstrainedMultiAttack, self).__init__(*args, **kargs)
         self.objective_calculator = objective_calculator
 
+    # Override from upper class
+    # Moeva does not use the same model as other attacks
+    def check_validity(self):
+        if len(self.attacks) < 2:
+            raise ValueError("More than two attacks should be given.")
+
+        ids = []
+        for attack in self.attacks:
+            if isinstance(attack, Moeva2):
+                ids.append(id(attack.model.__self__.wrapper_model))
+            else:
+                ids.append(id(attack.model))
+        if len(set(ids)) != 1:
+            raise ValueError(
+                "At least one of attacks is referencing a different model."
+            )
+
     def forward(self, images, labels):
         r"""
         Overridden.
@@ -36,7 +53,7 @@ class ConstrainedMultiAttack(MultiAttack):
         multi_atk_records = [batch_size]
 
         for _, attack in enumerate(self.attacks):
-            
+
             # Attack the one that failed so far
             adv_images = attack(images[fails], labels[fails])
 
@@ -49,7 +66,7 @@ class ConstrainedMultiAttack(MultiAttack):
             # Type conversion
             numpy_clean = to_numpy_number(images[fails]).astype(np.float32)
             numpy_adv = to_numpy_number(filter_adv)
-            
+
             # Indexes of the successful attacks
             (
                 success_attack_indices,
@@ -69,7 +86,7 @@ class ConstrainedMultiAttack(MultiAttack):
 
             # If we found adversarials
             if len(success_attack_indices) > 0:
-                   
+
                 final_images[fails[success_attack_indices]] = filter_adv[
                     success_attack_indices, success_adversarials_indices, :
                 ].squeeze(1)
@@ -210,7 +227,7 @@ class ConstrainedAutoAttack(Attack):
                         eps_margin=eps_margin,
                     ),
                     Moeva2(
-                        model,
+                        model_objective,
                         constraints=constraints,
                         eps=eps,
                         norm=norm,
