@@ -247,13 +247,13 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
 
-        try:
-            run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs)
-        except Exception as e:
-            if len(attacks_name)==1:
-                raise e
-            else:
-                print(e)
+        # try:
+        run_experiment(model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs)
+        # except Exception as e:
+        #     if len(attacks_name)==1:
+        #         raise e
+        #     else:
+        #         print(e)
 
 
 if __name__ == "__main__":
