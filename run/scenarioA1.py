@@ -40,12 +40,10 @@ from sklearn.model_selection import train_test_split
 from typing import List
 import time
 
-PROJECT_NAME = "scenario_A1_v3"
-
 
 def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data",
-                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None):
-    experiment = XP({**args, "filter_class": filter_class}, project_name=PROJECT_NAME)
+                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None, project_name="scenario_A1_v3"):
+    experiment = XP({**args, "filter_class": filter_class}, project_name=project_name)
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
