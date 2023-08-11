@@ -21,13 +21,13 @@ def get_nb_objectives() -> int:
 
 class AdversarialProblem(Problem):
     def __init__(
-            self,
-            x_clean: NDNumber,
-            y_clean: int,
-            classifier: Classifier,
-            constraints: Constraints,
-            fun_distance_preprocess=lambda x: x,
-            norm: Optional[Union[str, int]] = None,
+        self,
+        x_clean: NDNumber,
+        y_clean: int,
+        classifier: Classifier,
+        constraints: Constraints,
+        fun_distance_preprocess=lambda x: x,
+        norm: Optional[Union[str, int]] = None,
     ) -> None:
         # Parameters
         self.x_clean = x_clean
@@ -75,6 +75,10 @@ class AdversarialProblem(Problem):
         return compute_distance(x_1, x_2, self.norm)
 
     def _calculate_constraints(self, x):
+        if (self.constraints.relation_constraints is None) or (
+            len(self.constraints.relation_constraints) == 0
+        ):
+            return np.zeros(x.shape[0])
         executor = ConstraintsExecutor(
             AndConstraint(self.constraints.relation_constraints),
             NumpyBackend(),
