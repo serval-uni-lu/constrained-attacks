@@ -94,10 +94,6 @@ class ConstrainedMultiAttack(MultiAttack):
                 mask[success_attack_indices] = 0
                 fails = fails.masked_select(mask.bool())
 
-            # If its the last attack, send back the best you found so far:
-            if attack_i == len(self.attacks) - 1:
-                final_images[fails] = filter_adv.squeeze(1)
-
             multi_atk_records.append(len(fails))
 
             if len(fails) == 0:
