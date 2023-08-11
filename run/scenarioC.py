@@ -1,5 +1,5 @@
 """
-Scenario C2: graybox attacks without knowing domain constraints
+Scenario C1: graybox attacks with knowing domain constraints
 Source and target models are different; AA evaluation
 """
 
@@ -32,7 +32,7 @@ from sklearn.model_selection import train_test_split
 
 def run(dataset_name: str, model_name_source: str, model_name_target: str,  attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path_source: str = "",
-        custom_path_target: str = "",filter_class: int = None, n_jobs: int = -1):
+        custom_path_target: str = "",filter_class: int = None, n_jobs: int = -1, with_constraints=True):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -77,29 +77,19 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
         x_test.values,
         y_test,
     )
-    print("Test AUC: ", auc)
     
-    # Load target model
-    model_class = load_model(model_name_target)
-    weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
+    # # Load target model
+    # model_class = load_model(model_name_target)
+    # weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
     
-    if not os.path.exists(weight_path):
-        print("{} not found. Skipping".format(weight_path))
-        return
+    # if not os.path.exists(weight_path):
+    #     print("{} not found. Skipping".format(weight_path))
+    #     return
 
-    force_device = device if device != "" else None
-    model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
+    # force_device = device if device != "" else None
+    # model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
     print("--------- Start of verification ---------")
-    # Verify target model
 
-    metric = create_metric("auc")
-    auc = compute_metric(
-        model_target,
-        metric,
-        x_test.values,
-        y_test,
-    )
-    print("Test AUC: ", auc)
 
     # Constraints
 
@@ -122,19 +112,56 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
     # In scneario C2, the attacker is not aware of the constraints or the mutable features
     # He knows the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
-    constraints.relation_constraints = None
+    
+    if not with_constraints:
+        constraints.relation_constraints = None
+    # constraints.relation_constraints = True
     # constraints.mutable_features = None
     constraints_eval = copy.deepcopy(dataset.get_constraints())
+    
+    
+    list_model_name_target = [model_name_target.split(":")]
+    if custom_path_target != "":
+        list_custom_path_target = [custom_path_target.split(":")] 
+    else: 
+        list_custom_path_target = [f"../models/constrained/{dataset_name}_{model_name_target}.model" for model_name_target in list_model_name_target]
+
+    assert len(list_model_name_target) == len(list_custom_path_target)
 
     for attack_name in attacks_name:
-        args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
+        last_adv = None
+        for target_idx, (model_name_target, custom_path_target) in enumerate(zip(list_model_name_target, list_custom_path_target)):
+            args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
                 "model_name_target": model_name_target, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path,
                 "weight_path_target": custom_path_target}
+            
+            # Load target model
+            model_class = load_model(model_name_target)
+            weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
+            
+            if not os.path.exists(weight_path):
+                print("{} not found. Skipping".format(weight_path))
+                return
 
-        run_experiment(model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
-                       n_jobs=n_jobs,
-                       constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval)
+            force_device = device if device != "" else None
+            model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
+            
+                # Verify target model
+            print("Test AUC: ", auc)
+
+            metric = create_metric("auc")
+            auc = compute_metric(
+                model_target,
+                metric,
+                x_test.values,
+                y_test,
+            )
+            print("Test AUC: ", auc)
+        
+            last_adv = run_experiment(model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
+                        n_jobs=n_jobs,
+                        constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval, override_adv=last_adv)
 
 
 if __name__ == "__main__":
@@ -162,9 +189,12 @@ if __name__ == "__main__":
     parser.add_argument("--save_examples", type=int, default=1)
     parser.add_argument("--filter_class", type=int, default=1)
     parser.add_argument("--n_jobs", type=int, default=-1)
+    parser.add_argument('--constraints', action='store_true')
+    parser.add_argument('--no-constraints', dest='constraints', action='store_false')
+    parser.set_defaults(constraints=True)
 
     args = parser.parse_args()
 
     run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
         subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class, n_jobs=args.n_jobs,
-        batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device)
+        batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device, with_constraints=args.constraints)
