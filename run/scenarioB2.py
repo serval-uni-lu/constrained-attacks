@@ -1,5 +1,5 @@
 """
-Scenario B1: Query based attacks with knowing domain constraints
+Scenario B2: Query based attacks without knowing domain constraints
 Source and target models are the same; MoeVa only 
 """
 
@@ -110,7 +110,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
 
     # In scneario B1, the attacker not aware of the constraints
     constraints = copy.deepcopy(dataset.get_constraints())
-    constraints.relation_constraints = True
+    constraints.relation_constraints = False
     
     attacks = {
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
