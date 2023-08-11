@@ -122,17 +122,17 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
     # In scneario C2, the attacker is not aware of the constraints or the mutable features
     # He knows the mutable features
     constraints = copy.deepcopy(dataset.get_constraints())
-    constraints.relation_constraints = True
+    # constraints.relation_constraints = True
     # constraints.mutable_features = None
     constraints_eval = copy.deepcopy(dataset.get_constraints())
 
     for attack_name in attacks_name:
         args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
                 "model_name_target": model_name_target, "attack_name": attack_name, "subset": subset,
-                "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path_source,
-                "weight_path_target": weight_path_target}
+                "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path,
+                "weight_path_target": custom_path_target}
 
-        run_experiment(model, model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
+        run_experiment(model_target, model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
                        n_jobs=n_jobs,
                        constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval)
 

@@ -52,7 +52,7 @@ class ConstrainedMultiAttack(MultiAttack):
 
         multi_atk_records = [batch_size]
 
-        for _, attack in enumerate(self.attacks):
+        for attack_i, attack in enumerate(self.attacks):
 
             # Attack the one that failed so far
             adv_images = attack(images[fails], labels[fails])
@@ -72,13 +72,13 @@ class ConstrainedMultiAttack(MultiAttack):
                 success_attack_indices,
                 success_adversarials_indices,
             ) = self.objective_calculator.get_successful_attacks_indexes(
-                numpy_clean, labels[fails], numpy_adv, max_inputs=1
+                numpy_clean, labels[fails].cpu(), numpy_adv, max_inputs=1
             )
 
             # Sanity check start, can ignore for debugging
             clean_indices = (
                 self.objective_calculator.get_successful_attacks_clean_indexes(
-                    numpy_clean, labels[fails], numpy_adv
+                    numpy_clean, labels[fails].cpu(), numpy_adv
                 )
             )
             assert np.equal(clean_indices, success_attack_indices).all()
@@ -93,6 +93,10 @@ class ConstrainedMultiAttack(MultiAttack):
                 mask = torch.ones_like(fails)
                 mask[success_attack_indices] = 0
                 fails = fails.masked_select(mask.bool())
+
+            # If its the last attack, send back the best you found so far:
+            if attack_i == len(self.attacks) - 1:
+                final_images[fails] = filter_adv.squeeze(1)
 
             multi_atk_records.append(len(fails))
 

@@ -38,7 +38,7 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from typing import List
 import time
-from run.scenario_A1 import run_experiment
+from run.scenarioA1 import run_experiment
 
 def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "",
@@ -110,12 +110,12 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
 
     # In scneario B1, the attacker not aware of the constraints
     constraints = copy.deepcopy(dataset.get_constraints())
-    constraints.relation_constraints = True
+    # constraints.relation_constraints = True
     
     attacks = {
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
                "n_jobs":n_jobs,"n_gen":args.get("n_gen",100),
-               "n_offsprings"=args.get("n_offsprings",100),"thresholds": {"distance": args.get("max_eps")}})
+               "n_offsprings": args.get("n_offsprings",100),"thresholds": {"distance": args.get("max_eps")}})
         
     }
 

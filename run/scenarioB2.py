@@ -38,7 +38,7 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from typing import List
 import time
-from run.scenario_A1 import run_experiment
+from run.scenarioA1 import run_experiment
 
 def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "",
@@ -110,12 +110,13 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
 
     # In scneario B1, the attacker not aware of the constraints
     constraints = copy.deepcopy(dataset.get_constraints())
-    constraints.relation_constraints = False
+    constraints.relation_constraints = None
+    constraints_eval = copy.deepcopy(dataset.get_constraints())
     
     attacks = {
                "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform,
                "n_jobs":n_jobs,"n_gen":args.get("n_gen",100),
-               "n_offsprings"=args.get("n_offsprings",100),"thresholds": {"distance": args.get("max_eps")}})
+               "n_offsprings": args.get("n_offsprings",100),"thresholds": {"distance": args.get("max_eps")}})
         
     }
 
@@ -124,7 +125,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path, "n_gen":n_gen, "n_offsprings":n_offsprings}
 
         run_experiment(model, model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs,
-        constraints = constraints, ATTACKS=attacks,project_name="scenario_B2_v1")
+        constraints = constraints, ATTACKS=attacks,project_name="scenario_B2_v1", constraints_eval=constraints_eval)
 
 
 if __name__ == "__main__":
