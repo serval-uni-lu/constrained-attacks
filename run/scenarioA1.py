@@ -42,7 +42,7 @@ import time
 
 
 def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data",
-                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None, project_name="scenario_A1_v3"):
+                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None, project_name="scenario_A1_v3", constraints_eval=None):
     experiment = XP({**args, "filter_class": filter_class}, project_name=project_name)
 
     save_path = os.path.join(xp_path, experiment.get_name())
@@ -52,12 +52,15 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
 
     if constraints is None:
         constraints = dataset.get_constraints()
+        
+    if constraints_eval is None:
+        constraints_eval = copy.deepcopy(constraints)
 
     if ATTACKS is None:
         ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
                    "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform, "n_jobs": n_jobs,
                                       "thresholds": {"distance": args.get("max_eps")}}),
-                   "caa": (ConstrainedAutoAttack, {"constraints_eval": copy.deepcopy(constraints), "n_jobs": n_jobs})}
+                   "caa": (ConstrainedAutoAttack, {"constraints_eval": constraints_eval, "n_jobs": n_jobs})}
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
@@ -126,20 +129,20 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
         if len(filter_adv.shape) == 3:
             # for example for Moeva, we need first to extract the successful examples
             success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
-                filter_x.detach().numpy(), filter_y, filter_adv.detach().numpy(), max_inputs=1)
+                filter_x.detach().cpu().numpy(), filter_y.cpu(), filter_adv.detach().cpu().numpy(), max_inputs=1)
 
             filtered_ = filter_x.detach().clone()
             filtered_[success_attack_indices] = filter_adv[success_attack_indices, success_adversarials_indices, :]
             success_rate = objective_calculator.get_success_rate(
-                filtered_.numpy(),
-                filter_y,
-                filter_adv.detach().numpy(),
+                filtered_.cpu().numpy(),
+                filter_y.cpu(),
+                filter_adv.detach().cpu().numpy(),
             )
 
             if (filter_class is None):
                 adv_all = batch[0].detach().clone()
                 success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
-                    batch[0].detach().numpy(), batch[1].detach().numpy(), adv_x.detach().numpy(), max_inputs=1)
+                    batch[0].detach().cpu().numpy(), batch[1].detach().cpu().numpy(), adv_x.detach().cpu().numpy(), max_inputs=1)
                 adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all,
                                                       success_adversarials_indices_all, :]
                 adv_auc = compute_metric(

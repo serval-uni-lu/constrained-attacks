@@ -102,6 +102,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     constraints = copy.deepcopy(dataset.get_constraints())
     constraints.relation_constraints = None
     # constraints.mutable_features = None
+    constraints_eval = copy.deepcopy(dataset.get_constraints())
 
     for attack_name in attacks_name:
         args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
@@ -109,7 +110,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
 
         run_experiment(model, model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
                        n_jobs=n_jobs,
-                       constraints=constraints, project_name="scenario_A2_v3")
+                       constraints=constraints, project_name="scenario_A2_v3", constraints_eval=constraints_eval)
 
 
 if __name__ == "__main__":
