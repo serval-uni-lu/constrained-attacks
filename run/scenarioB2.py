@@ -124,7 +124,7 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path, "n_gen":n_gen, "n_offsprings":n_offsprings}
 
         run_experiment(model, model, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class, n_jobs=n_jobs,
-        constraints = constraints, ATTACKS=attacks)
+        constraints = constraints, ATTACKS=attacks,project_name="scenario_B2_v1")
 
 
 if __name__ == "__main__":
