@@ -26,9 +26,7 @@ from constrained_attacks.objective_calculator.cache_objective_calculator import 
     ObjectiveCalculator,
 )
 from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import (
-    AndConstraint
-)
+from mlc.constraints.relation_constraint import AndConstraint
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.cfab import CFAB
@@ -41,9 +39,27 @@ from typing import List
 import time
 
 
-def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples: int = 1, xp_path="./data",
-                   filter_class=None, n_jobs=1, ATTACKS=None, constraints=None, project_name="scenario_A1_v3", constraints_eval=None):
-    experiment = XP({**args, "filter_class": filter_class}, project_name=project_name)
+def run_experiment(
+    model,
+    model_eval,
+    dataset,
+    scaler,
+    x,
+    y,
+    args,
+    save_examples: int = 1,
+    xp_path="./data",
+    filter_class=None,
+    n_jobs=1,
+    ATTACKS=None,
+    constraints=None,
+    project_name="scenario_A1_v3",
+    constraints_eval=None,
+    override_adv=None,
+):
+    experiment = XP(
+        {**args, "filter_class": filter_class}, project_name=project_name
+    )
 
     save_path = os.path.join(xp_path, experiment.get_name())
     os.makedirs(save_path, exist_ok=True)
@@ -52,15 +68,28 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
 
     if constraints is None:
         constraints = dataset.get_constraints()
-        
+
     if constraints_eval is None:
         constraints_eval = copy.deepcopy(constraints)
 
     if ATTACKS is None:
-        ATTACKS = {"pgdl2": (CPGDL2, {}), "apgd": (CAPGD, {}), "fab": (CFAB, {}),
-                   "moeva": (Moeva2, {"fun_distance_preprocess": scaler.transform, "n_jobs": n_jobs,
-                                      "thresholds": {"distance": args.get("max_eps")}}),
-                   "caa": (ConstrainedAutoAttack, {"constraints_eval": constraints_eval, "n_jobs": n_jobs})}
+        ATTACKS = {
+            "pgdl2": (CPGDL2, {}),
+            "apgd": (CAPGD, {}),
+            "fab": (CFAB, {}),
+            "moeva": (
+                Moeva2,
+                {
+                    "fun_distance_preprocess": scaler.transform,
+                    "n_jobs": n_jobs,
+                    "thresholds": {"distance": args.get("max_eps")},
+                },
+            ),
+            "caa": (
+                ConstrainedAutoAttack,
+                {"constraints_eval": constraints_eval, "n_jobs": n_jobs},
+            ),
+        }
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
 
@@ -68,19 +97,35 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
     constraints = copy.deepcopy(constraints)
     attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
-    attack = attack_class[0](constraints=constraints, scaler=scaler, model=model.wrapper_model,
-                             fix_equality_constraints_end=True, fix_equality_constraints_iter=True,
-                             model_objective=model.predict_proba, **attack_args)
+    attack = attack_class[0](
+        constraints=constraints,
+        scaler=scaler,
+        model=model.wrapper_model,
+        fix_equality_constraints_end=True,
+        fix_equality_constraints_iter=True,
+        model_objective=model.predict_proba,
+        **attack_args,
+    )
 
     device = model.device
 
-    dataloader = FastTensorDataLoader(torch.Tensor(x.values).to(device),
-                                      torch.tensor(y, dtype=torch.long).to(device), batch_size=args.get("batch_size"))
+    dataloader = FastTensorDataLoader(
+        torch.Tensor(x.values).to(device),
+        torch.tensor(y, dtype=torch.long).to(device),
+        batch_size=args.get("batch_size"),
+    )
 
+    out = []
     for batch_idx, batch in enumerate(dataloader):
         metric = create_metric("auc")
         startt = time.time()
-        adv_x = attack(batch[0], batch[1]).detach()
+
+        if override_adv is not None:
+            adv_x = override_adv[batch_idx]
+        else:
+            adv_x = attack(batch[0], batch[1]).detach()
+
+        out.append(adv_x)
 
         if adv_x.shape == batch[0].shape:
             incorrect_index = torch.isnan(adv_x).any(1)
@@ -91,9 +136,13 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
-        if (filter_class is not None):
+        if filter_class is not None:
             filter = batch[1] == filter_class
-            filter_x, filter_y, filter_adv = batch[0][filter], batch[1][filter], adv_x[filter]
+            filter_x, filter_y, filter_adv = (
+                batch[0][filter],
+                batch[1][filter],
+                adv_x[filter],
+            )
         else:
             # we can't compute AUC if we filter one class
             test_auc = compute_metric(
@@ -112,7 +161,9 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
         )
         constraints_val = constraints_executor.execute(adv_x)
         constraints_ok = (constraints_val <= 0).float().mean()
-        experiment.log_metric("adv_constraints", constraints_ok, step=batch_idx)
+        experiment.log_metric(
+            "adv_constraints", constraints_ok, step=batch_idx
+        )
 
         objective_calculator = ObjectiveCalculator(
             classifier=model_eval.predict_proba,
@@ -124,27 +175,50 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
             norm="L2",
             fun_distance_preprocess=scaler.transform,
         )
-        filter_adv = filter_adv.unsqueeze(1) if len(filter_adv.shape) < 3 else filter_adv
+        filter_adv = (
+            filter_adv.unsqueeze(1)
+            if len(filter_adv.shape) < 3
+            else filter_adv
+        )
         adv_x = adv_x.unsqueeze(1) if len(adv_x.shape) < 3 else adv_x
         if len(filter_adv.shape) == 3:
             # for example for Moeva, we need first to extract the successful examples
-            success_attack_indices, success_adversarials_indices = objective_calculator.get_successful_attacks_indexes(
-                filter_x.detach().cpu().numpy(), filter_y.cpu(), filter_adv.detach().cpu().numpy(), max_inputs=1)
+            (
+                success_attack_indices,
+                success_adversarials_indices,
+            ) = objective_calculator.get_successful_attacks_indexes(
+                filter_x.detach().cpu().numpy(),
+                filter_y.cpu(),
+                filter_adv.detach().cpu().numpy(),
+                max_inputs=1,
+            )
 
             filtered_ = filter_x.detach().clone()
-            filtered_[success_attack_indices] = filter_adv[success_attack_indices, success_adversarials_indices, :]
+            filtered_[success_attack_indices] = filter_adv[
+                success_attack_indices, success_adversarials_indices, :
+            ]
             success_rate = objective_calculator.get_success_rate(
                 filtered_.cpu().numpy(),
                 filter_y.cpu(),
                 filter_adv.detach().cpu().numpy(),
             )
 
-            if (filter_class is None):
+            if filter_class is None:
                 adv_all = batch[0].detach().clone()
-                success_attack_indices_all, success_adversarials_indices_all = objective_calculator.get_successful_attacks_indexes(
-                    batch[0].detach().cpu().numpy(), batch[1].detach().cpu().numpy(), adv_x.detach().cpu().numpy(), max_inputs=1)
-                adv_all[success_attack_indices_all] = adv_x[success_attack_indices_all,
-                                                      success_adversarials_indices_all, :]
+                (
+                    success_attack_indices_all,
+                    success_adversarials_indices_all,
+                ) = objective_calculator.get_successful_attacks_indexes(
+                    batch[0].detach().cpu().numpy(),
+                    batch[1].detach().cpu().numpy(),
+                    adv_x.detach().cpu().numpy(),
+                    max_inputs=1,
+                )
+                adv_all[success_attack_indices_all] = adv_x[
+                    success_attack_indices_all,
+                    success_adversarials_indices_all,
+                    :,
+                ]
                 adv_auc = compute_metric(
                     model_eval,
                     metric,
@@ -159,7 +233,7 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
                 filter_adv.detach().numpy(),
             )
 
-            if (filter_class is None):
+            if filter_class is None:
                 adv_auc = compute_metric(
                     model_eval,
                     metric,
@@ -178,10 +252,22 @@ def run_experiment(model, model_eval, dataset, scaler, x, y, args, save_examples
 
         experiment.flush()
 
+    return out
 
-def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
-        batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path: str = "",
-        filter_class: int = None, n_jobs: int = -1):
+
+def run(
+    dataset_name: str,
+    model_name: str,
+    attacks_name: List[str] = None,
+    max_eps: float = 0.1,
+    subset: int = 1,
+    batch_size: int = 1024,
+    save_examples: int = 1,
+    device: str = "cuda",
+    custom_path: str = "",
+    filter_class: int = None,
+    n_jobs: int = -1,
+):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -191,7 +277,9 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     y_test = y[splits["test"]]
 
     if subset > 0 and subset < len(y_test):
-        _, x_test, _, y_test = train_test_split(x_test, y_test, test_size=subset, stratify=y_test, random_state=42)
+        _, x_test, _, y_test = train_test_split(
+            x_test, y_test, test_size=subset, stratify=y_test, random_state=42
+        )
         class_imbalance = np.unique(y_test, return_counts=True)
         print("class imbalance", class_imbalance)
 
@@ -208,14 +296,23 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
 
     # Load model
     model_class = load_model(model_name)
-    weight_path = f"../models/constrained/{dataset_name}_{model_name}.model" if custom_path == "" else custom_path
+    weight_path = (
+        f"../models/constrained/{dataset_name}_{model_name}.model"
+        if custom_path == ""
+        else custom_path
+    )
 
     if not os.path.exists(weight_path):
         print("{} not found. Skipping".format(weight_path))
         return
 
     force_device = device if device != "" else None
-    model = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
+    model = model_class.load_class(
+        weight_path,
+        x_metadata=metadata,
+        scaler=scaler,
+        force_device=force_device,
+    )
     print("--------- Start of verification ---------")
     # Verify model
 
@@ -242,18 +339,39 @@ def run(dataset_name: str, model_name: str, attacks_name: List[str] = None, max_
     assert constraints_ok > 0.9
 
     if constraints_ok < 1:
-        x_test = x_test.iloc[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
-        y_test = y_test[(constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()]
+        x_test = x_test.iloc[
+            (constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()
+        ]
+        y_test = y_test[
+            (constraints_val <= 0.01).nonzero(as_tuple=True)[0].numpy()
+        ]
 
     print("--------- End of verification ---------")
 
     for attack_name in attacks_name:
-        args = {"dataset_name": dataset_name, "model_name": model_name, "attack_name": attack_name, "subset": subset,
-                "batch_size": batch_size, "max_eps": max_eps, "weight_path": weight_path}
+        args = {
+            "dataset_name": dataset_name,
+            "model_name": model_name,
+            "attack_name": attack_name,
+            "subset": subset,
+            "batch_size": batch_size,
+            "max_eps": max_eps,
+            "weight_path": weight_path,
+        }
 
         # try:
-        run_experiment(model, model, dataset, scaler, x_test, y_test, args, save_examples,
-                           filter_class=filter_class, n_jobs=n_jobs)
+        run_experiment(
+            model,
+            model,
+            dataset,
+            scaler,
+            x_test,
+            y_test,
+            args,
+            save_examples,
+            filter_class=filter_class,
+            n_jobs=n_jobs,
+        )
         # except Exception as e:
         #     if len(attacks_name) == 1:
         #         raise e
@@ -265,16 +383,31 @@ if __name__ == "__main__":
     parser = ArgumentParser(
         description="Training with Hyper-parameter optimization"
     )
-    parser.add_argument("--dataset_name", type=str, default="lcld_v2_iid",
-                        )
-    parser.add_argument("--model_name", type=str, default="tabtransformer",
-                        )
-    parser.add_argument("--custom_path", type=str, default="",
-                        )
-    parser.add_argument("--attacks_name", type=str, default="pgdl2",
-                        )
-    parser.add_argument("--device", type=str, default="",
-                        )
+    parser.add_argument(
+        "--dataset_name",
+        type=str,
+        default="lcld_v2_iid",
+    )
+    parser.add_argument(
+        "--model_name",
+        type=str,
+        default="tabtransformer",
+    )
+    parser.add_argument(
+        "--custom_path",
+        type=str,
+        default="",
+    )
+    parser.add_argument(
+        "--attacks_name",
+        type=str,
+        default="pgdl2",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="",
+    )
     parser.add_argument("--max_eps", type=float, default=0.1)
     parser.add_argument("--subset", type=int, default=1000)
     parser.add_argument("--batch_size", type=int, default=1024)
@@ -284,6 +417,16 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class, n_jobs=args.n_jobs,
-        batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device)
+    run(
+        dataset_name=args.dataset_name,
+        model_name=args.model_name,
+        attacks_name=args.attacks_name.split("+"),
+        subset=args.subset,
+        custom_path=args.custom_path,
+        filter_class=args.filter_class,
+        n_jobs=args.n_jobs,
+        batch_size=args.batch_size,
+        save_examples=args.save_examples,
+        max_eps=args.max_eps,
+        device=args.device,
+    )

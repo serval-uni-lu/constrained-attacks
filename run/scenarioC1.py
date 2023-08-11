@@ -77,29 +77,19 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
         x_test.values,
         y_test,
     )
-    print("Test AUC: ", auc)
     
-    # Load target model
-    model_class = load_model(model_name_target)
-    weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
+    # # Load target model
+    # model_class = load_model(model_name_target)
+    # weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
     
-    if not os.path.exists(weight_path):
-        print("{} not found. Skipping".format(weight_path))
-        return
+    # if not os.path.exists(weight_path):
+    #     print("{} not found. Skipping".format(weight_path))
+    #     return
 
-    force_device = device if device != "" else None
-    model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
+    # force_device = device if device != "" else None
+    # model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
     print("--------- Start of verification ---------")
-    # Verify target model
 
-    metric = create_metric("auc")
-    auc = compute_metric(
-        model_target,
-        metric,
-        x_test.values,
-        y_test,
-    )
-    print("Test AUC: ", auc)
 
     # Constraints
 
@@ -125,16 +115,49 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
     # constraints.relation_constraints = True
     # constraints.mutable_features = None
     constraints_eval = copy.deepcopy(dataset.get_constraints())
+    
+    
+    list_model_name_target = [model_name_target.split(":")]
+    if custom_path_target != "":
+        list_custom_path_target = [custom_path_target.split(":")] 
+    else: 
+        list_custom_path_target = [f"../models/constrained/{dataset_name}_{model_name_target}.model" for model_name_target in list_model_name_target]
+
 
     for attack_name in attacks_name:
-        args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
+        last_adv = None
+        for target_idx, (model_name_target, custom_path_target) in enumerate(zip(list_model_name_target, list_custom_path_target)):
+            args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
                 "model_name_target": model_name_target, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path,
                 "weight_path_target": custom_path_target}
+            
+            # Load target model
+            model_class = load_model(model_name_target)
+            weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
+            
+            if not os.path.exists(weight_path):
+                print("{} not found. Skipping".format(weight_path))
+                return
 
-        run_experiment(model_target, model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
-                       n_jobs=n_jobs,
-                       constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval)
+            force_device = device if device != "" else None
+            model_target = model_class.load_class(weight_path, x_metadata=metadata, scaler=scaler, force_device=force_device)
+            
+                # Verify target model
+            print("Test AUC: ", auc)
+
+            metric = create_metric("auc")
+            auc = compute_metric(
+                model_target,
+                metric,
+                x_test.values,
+                y_test,
+            )
+            print("Test AUC: ", auc)
+        
+            last_adv = run_experiment(model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
+                        n_jobs=n_jobs,
+                        constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval, override_adv=last_adv)
 
 
 if __name__ == "__main__":
