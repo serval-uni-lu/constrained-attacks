@@ -32,7 +32,7 @@ from sklearn.model_selection import train_test_split
 
 def run(dataset_name: str, model_name_source: str, model_name_target: str,  attacks_name: List[str] = None, max_eps: float = 0.1, subset: int = 1,
         batch_size: int = 1024, save_examples: int = 1, device: str = "cuda", custom_path_source: str = "",
-        custom_path_target: str = "",filter_class: int = None, n_jobs: int = -1, with_constraints=True):
+        custom_path_target: str = "", filter_class: int = None, n_jobs: int = -1, with_constraints=True):
     # Load data
 
     dataset = load_dataset(dataset_name)
@@ -194,6 +194,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run(dataset_name=args.dataset_name, model_name=args.model_name, attacks_name=args.attacks_name.split("+"),
-        subset=args.subset, custom_path=args.custom_path, filter_class=args.filter_class, n_jobs=args.n_jobs,
+    run(dataset_name=args.dataset_name, model_name_source=args.model_name_source, model_name_target=args.model_name_target, attacks_name=args.attacks_name.split("+"),
+        subset=args.subset, custom_path_source=args.custom_path_source, custom_path_target=args.custom_path_target, filter_class=args.filter_class, n_jobs=args.n_jobs,
         batch_size=args.batch_size, save_examples=args.save_examples, max_eps=args.max_eps, device=args.device, with_constraints=args.constraints)
