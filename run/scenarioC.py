@@ -177,8 +177,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--model_name_target", type=str, default="tabtransformer",
                         )
-    parser.add_argument("--custom_path_target", type=str, default="",
-                        )                    )
+    parser.add_argument("--custom_path_target", type=str, default="",)
     parser.add_argument("--attacks_name", type=str, default="caa",
                         )
     parser.add_argument("--device", type=str, default="",
