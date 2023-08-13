@@ -134,9 +134,9 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
         last_adv = None
         for target_idx, (model_name_target_l, custom_path_target_l) in enumerate(zip(list_model_name_target, list_custom_path_target)):
             args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
-                "model_name_target": model_name_target, "attack_name": attack_name, "subset": subset,
+                "model_name_target": model_name_target_l, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path,
-                "weight_path_target": custom_path_target}
+                "weight_path_target": custom_path_target_l}
             
             # Load target model
             print(model_name_target_l)
@@ -164,7 +164,7 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
         
             last_adv = run_experiment(model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
                         n_jobs=n_jobs,
-                        constraints=constraints, project_name="scenario_C2_v1", constraints_eval=constraints_eval, override_adv=last_adv)
+                        constraints=constraints, project_name="scenario_C2_v2", constraints_eval=constraints_eval, override_adv=last_adv)
 
 
 if __name__ == "__main__":
