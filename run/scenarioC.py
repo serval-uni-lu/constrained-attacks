@@ -120,25 +120,28 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
     constraints_eval = copy.deepcopy(dataset.get_constraints())
     
     
-    list_model_name_target = [model_name_target.split(":")]
+    list_model_name_target = model_name_target.split(":")
     if custom_path_target != "":
-        list_custom_path_target = [custom_path_target.split(":")] 
+        list_custom_path_target = custom_path_target.split(":")
     else: 
         list_custom_path_target = [f"../models/constrained/{dataset_name}_{model_name_target}.model" for model_name_target in list_model_name_target]
 
     assert len(list_model_name_target) == len(list_custom_path_target)
+    
+    print(list_model_name_target)
 
     for attack_name in attacks_name:
         last_adv = None
-        for target_idx, (model_name_target, custom_path_target) in enumerate(zip(list_model_name_target, list_custom_path_target)):
+        for target_idx, (model_name_target_l, custom_path_target_l) in enumerate(zip(list_model_name_target, list_custom_path_target)):
             args = {"dataset_name": dataset_name, "model_name_source": model_name_source,
                 "model_name_target": model_name_target, "attack_name": attack_name, "subset": subset,
                 "batch_size": batch_size, "max_eps": max_eps, "weight_path_source": weight_path,
                 "weight_path_target": custom_path_target}
             
             # Load target model
-            model_class = load_model(model_name_target)
-            weight_path = f"../models/constrained/{dataset_name}_{model_name_target}.model" if custom_path_source == "" else custom_path_target
+            print(model_name_target_l)
+            model_class = load_model(model_name_target_l)
+            weight_path = f"../models/constrained/{dataset_name}_{model_name_target_l}.model" if custom_path_source == "" else custom_path_target_l
             
             if not os.path.exists(weight_path):
                 print("{} not found. Skipping".format(weight_path))
