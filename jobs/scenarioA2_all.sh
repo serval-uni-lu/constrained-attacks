@@ -8,18 +8,16 @@ ATTACK="pgdl2+apgd+caa"
 FILTER_CLASS=1
 DEVICE="cpu"
 
-for DATASET in url ctu_13_neris lcld_v2_iid malware wids
+SCENARIO="--constraints_access False --project_name scenario_A2v12"
+
+for DATASET in lcld_v2_iid
 do
-  for MODEL in tabtransformer deepfm torchrln vime
-  do
-    MODEL_PATH="../models/mlc/best_models/${MODEL}_${DATASET}_default.model"
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA2.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA2.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
-
-    MODEL_PATH="../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA2.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE
-    CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA2.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS
-
-  done
+    for MODEL in tabtransformer torchrln
+    do
+        for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_default.model" "../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
+        do
+            CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO}
+        done
+    done
 done
 
