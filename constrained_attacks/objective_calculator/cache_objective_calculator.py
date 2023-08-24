@@ -91,7 +91,7 @@ class ObjectiveCalculator:
             )
 
         if "constraints" not in self.thresholds:
-            self.thresholds["constraints"] = 0.01
+            self.thresholds["constraints"] = 0.0
         self.objectives_eval: Optional[ObjectiveMeasure] = None
         self.objectives_respected: Optional[ObjectiveRespected] = None
 
