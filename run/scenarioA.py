@@ -8,11 +8,12 @@ import sys
 
 import pandas as pd
 
-from constrained_attacks.typing import NDInt
-from mlc.models.model import Model
 
 sys.path.append(".")
 sys.path.append("../ml-commons")
+from constrained_attacks.typing import NDInt
+from mlc.models.model import Model
+
 from comet import XP
 
 import torch
