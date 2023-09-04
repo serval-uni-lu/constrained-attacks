@@ -9,7 +9,7 @@ FILTER_CLASS=1
 DEVICE="cpu"
 
 
-SCENARIO="--constraints_access False --project_name scenario_A1v12"
+SCENARIO="--constraints_access True --project_name scenario_A1v13"
 
 for DATASET in lcld_v2_iid
 do
