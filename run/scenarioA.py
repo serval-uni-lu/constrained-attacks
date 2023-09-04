@@ -414,7 +414,6 @@ def run(
     if not constraints_access:
         constraints.relation_constraints = None
 
-
     for attack_name in attacks_name:
         args = {
             "dataset_name": dataset_name,
@@ -424,6 +423,7 @@ def run(
             "batch_size": batch_size,
             "max_eps": max_eps,
             "weight_path": weight_path,
+            "constraints_access": constraints_access,
         }
 
         # try:
