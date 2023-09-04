@@ -480,7 +480,9 @@ if __name__ == "__main__":
     parser.add_argument("--filter_class", type=int, default=None)
     parser.add_argument("--n_jobs", type=int, default=-1)
     parser.add_argument("--project_name", type=str, default="scenario")
-    parser.add_argument("--constraints_access", type=bool, default=True)
+    parser.add_argument('--constraints_access', action='store_true')
+    parser.add_argument('--no-constraints_access', dest='constraints_access', action='store_false')
+    parser.set_defaults(constraints_access=True)
 
     args = parser.parse_args()
 
