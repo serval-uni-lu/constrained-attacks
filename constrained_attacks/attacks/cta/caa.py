@@ -1,4 +1,5 @@
 import time
+from warnings import warn
 
 import numpy as np
 import torch
@@ -36,7 +37,7 @@ class ConstrainedMultiAttack(MultiAttack):
     # Moeva does not use the same model as other attacks
     def check_validity(self):
         if len(self.attacks) < 2:
-            raise ValueError("More than two attacks should be given.")
+            warn("More than two attacks should be given.")
 
         ids = []
         for attack in self.attacks:
