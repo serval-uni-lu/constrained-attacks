@@ -20,13 +20,10 @@ from mlc.transformers.tab_scaler import TabScaler
 from mlc.utils import to_numpy_number
 
 
-class NoAttack(Attack):
-    def __init__(self, model):
-        super().__init__("NoAttack", model)
-
-    def forward(self, images, labels):
+class NoAttack:
+    def __call__(self, images, labels):
         return images
-    
+
 
 class ConstrainedMultiAttack(MultiAttack):
     def __init__(self, objective_calculator, *args, **kargs):
