@@ -19,6 +19,14 @@ from mlc.transformers.tab_scaler import TabScaler
 from mlc.utils import to_numpy_number
 
 
+class NoAttack(Attack):
+    def __init__(self, model):
+        super().__init__("NoAttack", model)
+
+    def forward(self, images, labels):
+        return images
+    
+
 class ConstrainedMultiAttack(MultiAttack):
     def __init__(self, objective_calculator, *args, **kargs):
         super(ConstrainedMultiAttack, self).__init__(*args, **kargs)
@@ -52,7 +60,7 @@ class ConstrainedMultiAttack(MultiAttack):
 
         multi_atk_records = [batch_size]
 
-        for attack_i, attack in enumerate(self.attacks):
+        for attack_i, attack in enumerate(NoAttack() + self.attacks):
 
             # Attack the one that failed so far
             adv_images = attack(images[fails], labels[fails])
