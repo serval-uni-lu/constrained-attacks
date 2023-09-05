@@ -58,7 +58,7 @@ class ConstrainedMultiAttack(MultiAttack):
 
         multi_atk_records = [batch_size]
 
-        for attack_i, attack in enumerate(NoAttack() + self.attacks):
+        for attack_i, attack in enumerate([NoAttack()] + self.attacks):
 
             # Attack the one that failed so far
             adv_images = attack(images[fails], labels[fails])
