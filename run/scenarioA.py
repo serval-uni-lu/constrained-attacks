@@ -180,7 +180,7 @@ def run_experiment(
             experiment.log_metric("clean_auc", test_auc, step=batch_idx)
 
         acc = compute_metric(
-            create_metric("accuracy"), model_eval, batch[0], batch[1]
+            model_eval, create_metric("accuracy"), batch[0], batch[1]
         )
         experiment.log_metric("clean_acc", acc, step=batch_idx)
 
