@@ -406,7 +406,7 @@ def run(
         dataset.get_constraints(),
         model,
         filter_class=filter_class,
-        filter_correct=True,
+        filter_correct=False,
         subset=subset,
     )
     constraints = copy.deepcopy(dataset.get_constraints())
