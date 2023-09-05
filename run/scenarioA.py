@@ -36,7 +36,10 @@ from mlc.constraints.relation_constraint import AndConstraint
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.cfab import CFAB
-from constrained_attacks.attacks.cta.caa import ConstrainedAutoAttack
+from constrained_attacks.attacks.cta.caa import (
+    ConstrainedAutoAttack,
+    ConstrainedMultiAttack,
+)
 from constrained_attacks.attacks.moeva.moeva import Moeva2
 
 from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
@@ -115,6 +118,21 @@ def run_experiment(
         **attack_args,
     )
 
+    eval_constraints = copy.deepcopy(dataset.get_constraints())
+    objective_calculator = ObjectiveCalculator(
+        classifier=model_eval.predict_proba,
+        constraints=eval_constraints,
+        thresholds={
+            "distance": args.get("max_eps"),
+            # "constraints": 0.001,
+        },
+        norm="L2",
+        fun_distance_preprocess=scaler.transform,
+    )
+    attack = ConstrainedMultiAttack(
+        objective_calculator=objective_calculator, attacks=[attack]
+    )
+
     device = model.device
 
     dataloader = FastTensorDataLoader(
@@ -161,7 +179,11 @@ def run_experiment(
             )
             experiment.log_metric("clean_auc", test_auc, step=batch_idx)
 
-        eval_constraints = copy.deepcopy(dataset.get_constraints())
+        acc = compute_metric(
+            create_metric("accuracy"), model_eval, batch[0], batch[1]
+        )
+        experiment.log_metric("clean_acc", acc, step=batch_idx)
+
         # constraints_executor = ConstraintsExecutor(
         #     AndConstraint(eval_constraints.relation_constraints),
         #     PytorchBackend(),
@@ -173,16 +195,6 @@ def run_experiment(
         #     "adv_constraints", constraints_ok, step=batch_idx
         # )
 
-        objective_calculator = ObjectiveCalculator(
-            classifier=model_eval.predict_proba,
-            constraints=eval_constraints,
-            thresholds={
-                "distance": args.get("max_eps"),
-                # "constraints": 0.001,
-            },
-            norm="L2",
-            fun_distance_preprocess=scaler.transform,
-        )
         filter_adv = (
             filter_adv.unsqueeze(1)
             if len(filter_adv.shape) < 3
@@ -480,8 +492,12 @@ if __name__ == "__main__":
     parser.add_argument("--filter_class", type=int, default=None)
     parser.add_argument("--n_jobs", type=int, default=-1)
     parser.add_argument("--project_name", type=str, default="scenario")
-    parser.add_argument('--constraints_access', action='store_true')
-    parser.add_argument('--no-constraints_access', dest='constraints_access', action='store_false')
+    parser.add_argument("--constraints_access", action="store_true")
+    parser.add_argument(
+        "--no-constraints_access",
+        dest="constraints_access",
+        action="store_false",
+    )
     parser.set_defaults(constraints_access=True)
 
     args = parser.parse_args()
