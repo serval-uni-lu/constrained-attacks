@@ -108,7 +108,7 @@ def run_experiment(
     constraints = copy.deepcopy(constraints)
     attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
 
-    model_attack = model.wrapper_model if attack_name != "moeva" else model.predict_proba
+    model_attack = model.wrapper_model if attack_name != "moeva" else model
 
     attack = attack_class[0](
         constraints=constraints,

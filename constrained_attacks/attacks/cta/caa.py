@@ -39,7 +39,10 @@ class ConstrainedMultiAttack(MultiAttack):
         ids = []
         for attack in self.attacks:
             if isinstance(attack, Moeva2):
-                ids.append(id(attack.model.__self__.wrapper_model))
+                if hasattr(attack.model, "__self__"):
+                    ids.append(id(attack.model.__self__.wrapper_model))
+                else:
+                    ids.append(id(attack.model.wrapper_model))
             else:
                 ids.append(id(attack.model))
         if len(set(ids)) != 1:

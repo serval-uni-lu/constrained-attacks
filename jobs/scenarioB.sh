@@ -30,7 +30,7 @@ do
             do
               n_gen="${list_n_gen[$index]}"
               n_offsprings="${list_n_offsprings[$index]}"
-              echo CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --n_gen $n_gen --n_offsprings $n_offsprings
+              CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --n_gen $n_gen --n_offsprings $n_offsprings
             done
           done
         done
