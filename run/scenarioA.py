@@ -92,6 +92,8 @@ def run_experiment(
                     "fun_distance_preprocess": scaler.transform,
                     "n_jobs": n_jobs,
                     "thresholds": {"distance": args.get("max_eps")},
+                    "n_gen": "n_gen",
+                    "n_offsprings": "n_offsprings",
                 },
             ),
             "caa": (
@@ -363,6 +365,8 @@ def run(
     n_jobs: int = -1,
     project_name="scenario",
     constraints_access=True,
+    n_gen=100,
+    n_offsprings=100,
 ):
     # Load data
 
@@ -436,6 +440,8 @@ def run(
             "max_eps": max_eps,
             "weight_path": weight_path,
             "constraints_access": constraints_access,
+            "n_gen": n_gen,
+            "n_offsprings": n_offsprings,
         }
 
         # try:
@@ -499,6 +505,8 @@ if __name__ == "__main__":
         action="store_false",
     )
     parser.set_defaults(constraints_access=True)
+    parser.add_argument("--n_gen", type=int, default=100)
+    parser.add_argument("--n_offsprings", type=int, default=100)
 
     args = parser.parse_args()
 
@@ -516,4 +524,6 @@ if __name__ == "__main__":
         device=args.device,
         project_name=args.project_name,
         constraints_access=args.constraints_access,
+        n_gen=args.n_gen,
+        n_offsprings=args.n_offsprings,
     )
