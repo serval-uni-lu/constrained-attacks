@@ -92,8 +92,8 @@ def run_experiment(
                     "fun_distance_preprocess": scaler.transform,
                     "n_jobs": n_jobs,
                     "thresholds": {"distance": args.get("max_eps")},
-                    "n_gen": "n_gen",
-                    "n_offsprings": "n_offsprings",
+                    "n_gen": args.get("n_gen"),
+                    "n_offsprings": args.get("n_offsprings"),
                 },
             ),
             "caa": (
