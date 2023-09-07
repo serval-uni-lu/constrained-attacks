@@ -351,6 +351,18 @@ def load_model_and_weights(
     return model, weight_path
 
 
+def parse_target(model_name_target, custom_path_target, dataset_name):
+    list_model_name_target = model_name_target.split(":")
+    if custom_path_target != "":
+        list_custom_path_target = custom_path_target.split(":")
+    else:
+        list_custom_path_target = [
+            f"../models/constrained/{dataset_name}_{model_name_target}.model"
+            for model_name_target in list_model_name_target
+        ]
+    return list_model_name_target, list_custom_path_target
+
+
 def run(
     dataset_name: str,
     model_name: str,
@@ -367,6 +379,8 @@ def run(
     constraints_access=True,
     n_gen=100,
     n_offsprings=100,
+    model_name_target=None,
+    custom_path_target=None,
 ):
     # Load data
 
@@ -430,36 +444,62 @@ def run(
     if not constraints_access:
         constraints.relation_constraints = None
 
-    for attack_name in attacks_name:
-        args = {
-            "dataset_name": dataset_name,
-            "model_name": model_name,
-            "attack_name": attack_name,
-            "subset": subset,
-            "batch_size": batch_size,
-            "max_eps": max_eps,
-            "weight_path": weight_path,
-            "constraints_access": constraints_access,
-            "n_gen": n_gen,
-            "n_offsprings": n_offsprings,
-        }
-
-        # try:
-        run_experiment(
-            model,
-            model,
-            dataset,
-            scaler,
-            x_test,
-            y_test,
-            args,
-            save_examples,
-            filter_class=filter_class,
-            n_jobs=n_jobs,
-            constraints=constraints,
-            project_name=project_name,
-            constraints_eval=constraints_eval,
+    if model_name_target is not None:
+        list_model_name_target, list_custom_path_target = parse_target(
+            model_name_target, custom_path_target, dataset_name
         )
+    else:
+        list_model_name_target = [model_name]
+        list_custom_path_target = [weight_path]
+
+    for attack_name in attacks_name:
+        last_adv = None
+        for target_idx, (
+            model_name_target_l,
+            custom_path_target_l,
+        ) in enumerate(zip(list_model_name_target, list_custom_path_target)):
+            args = {
+                "dataset_name": dataset_name,
+                "model_name": model_name,
+                "attack_name": attack_name,
+                "subset": subset,
+                "batch_size": batch_size,
+                "max_eps": max_eps,
+                "weight_path": weight_path,
+                "constraints_access": constraints_access,
+                "n_gen": n_gen,
+                "n_offsprings": n_offsprings,
+                "weight_path_source": weight_path,
+                "weight_path_target": custom_path_target_l,
+            }
+            print(model_name_target_l)
+
+            model_target, weight_path_target = load_model_and_weights(
+                dataset_name,
+                model_name_target_l,
+                custom_path_target_l,
+                metadata,
+                scaler,
+                device,
+            )
+
+            # try:
+            last_adv = run_experiment(
+                model,
+                model_target,
+                dataset,
+                scaler,
+                x_test,
+                y_test,
+                args,
+                save_examples,
+                filter_class=filter_class,
+                n_jobs=n_jobs,
+                constraints=constraints,
+                project_name=project_name,
+                constraints_eval=constraints_eval,
+                override_adv=last_adv,
+            )
 
 
 if __name__ == "__main__":
@@ -507,6 +547,8 @@ if __name__ == "__main__":
     parser.set_defaults(constraints_access=True)
     parser.add_argument("--n_gen", type=int, default=100)
     parser.add_argument("--n_offsprings", type=int, default=100)
+    parser.add_argument("--model_name_target", type=str, default=None)
+    parser.add_argument("--custom_path_target", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -526,4 +568,6 @@ if __name__ == "__main__":
         constraints_access=args.constraints_access,
         n_gen=args.n_gen,
         n_offsprings=args.n_offsprings,
+        model_name_target=args.model_name_target,
+        custom_path_target=args.custom_path_target,
     )
