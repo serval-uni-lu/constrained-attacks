@@ -45,21 +45,22 @@ class CPGDL2(Attack):
     """
 
     def __init__(
-            self,
-            constraints: Constraints,
-            scaler: TabScaler,
-            model,
-            model_objective,
-            eps=1.0,
-            alpha=0.2,
-            steps=10,
-            random_start=True,
-            eps_for_division=1e-10,
-            fix_equality_constraints_end: bool = True,
-            fix_equality_constraints_iter: bool = True,
-            adaptive_eps: bool = False,
-            eps_margin=0.01,
-            **kwargs
+        self,
+        constraints: Constraints,
+        scaler: TabScaler,
+        model,
+        model_objective,
+        eps=1.0,
+        alpha=0.2,
+        steps=10,
+        random_start=True,
+        eps_for_division=1e-10,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
+        adaptive_eps: bool = False,
+        eps_margin=0.01,
+        seed: int = 0,
+        **kwargs,
     ):
         super().__init__("PGDL2", model)
         self.eps = eps - eps * eps_margin
@@ -96,6 +97,8 @@ class CPGDL2(Attack):
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
         ).to(self.device)
 
+        self.seed = seed
+
     def get_logits(self, inputs, labels=None, *args, **kwargs):
         if hasattr(self, "scaler") and self.scaler is not None:
             inputs = self.scaler.inverse_transform(inputs)
@@ -131,7 +134,8 @@ class CPGDL2(Attack):
         r"""
         Overridden.
         """
-
+        torch.random.manual_seed(self.seed)
+        torch.cuda.random.manual_seed(self.seed)
         images = images.clone().detach().to(self.device)
         labels = labels.clone().detach().to(self.device)
 
@@ -183,8 +187,8 @@ class CPGDL2(Attack):
                 allow_unused=True,
             )[0]
             grad_norms = (
-                    torch.norm(grad.view(batch_size, -1), p=2, dim=1)
-                    + self.eps_for_division
+                torch.norm(grad.view(batch_size, -1), p=2, dim=1)
+                + self.eps_for_division
             )  # nopep8
             grad = grad / grad_norms.view(batch_size, 1)
 
@@ -195,12 +199,12 @@ class CPGDL2(Attack):
                     step // iteration_per_step + 1
                 ).float()
                 local_alpha = self.eps * (
-                        1 / torch.float_power(10.0, current_power)
+                    1 / torch.float_power(10.0, current_power)
                 )
                 print(local_alpha)
 
             adv_images = (
-                    adv_images.detach() + local_alpha * grad * self.mutable_mask
+                adv_images.detach() + local_alpha * grad * self.mutable_mask
             )
 
             delta = adv_images - images
