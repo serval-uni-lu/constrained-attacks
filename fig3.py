@@ -28,6 +28,16 @@ import seaborn as sns
 A1_PATH = "A1_all_20230905_2.csv"
 A2_PATH = "A2_all_20230905_2.csv"
 
+model_names = {
+    "vime": "VIME",
+    "deepfm": "DeepFM",
+    "torchrln": "TorchRLN",
+    "tabtransformer": "TabTransformer",
+}
+other_names = {
+    "model_name": "Model",
+}
+
 
 def barplot(
     data,
@@ -109,11 +119,11 @@ def barplot(
 
 
 def sort_attack_name(attack: str) -> int:
-    print(f"attack {attack}")
-    for i, e in enumerate(["CPGD", "CAPGD", "CAA"]):
-        print(e)
+    # print(f"attack {attack}")
+    for i, e in enumerate(["CPGD", "CAPGD", "MOEVA", "CAA", "CAA2"]):
+        # print(e)
         if e == attack:
-            print(i)
+            # print(i)
             return i
 
 
@@ -125,7 +135,7 @@ def attack_to_name(attack: str) -> str:
 
 
 def path_to_name(path: str) -> str:
-    print(path)
+    # print(path)
     if isinstance(path, float) and np.isnan(path):
         return "Unknown"
     if "madry" in path:
@@ -143,7 +153,7 @@ def one_figure(df: pd.DataFrame, name: str):
     df = df.sort_values(by=["scenario", "attack_name_sort"])
     default_acc = df[df["Model"] == "Standard"]["clean_acc"].values[0]
     robust_acc = df[df["Model"] == "Robust"]["clean_acc"].values[0]
-    print(df["model_name"].values[0])
+    # print(df["model_name"].values[0])
     barplot(
         df,
         name,
@@ -243,6 +253,105 @@ def a_1_plot(df, name):
     )
 
 
+def acde_plot(df, name):
+    
+    pass
+
+def b_plot(df, name):
+
+    df = df.copy()
+    df = df[(df["scenario_name"] == "B1")]
+
+    df["Budget"] = (
+        df["n_gen"].astype(int).astype(str)
+        + "x"
+        + df["n_offsprings"].astype(int).astype(str)
+    )
+    df["budget_sort"] = df["n_gen"] * df["n_offsprings"]
+    df = df.sort_values(by=["budget_sort"])
+
+    for e in ["Standard", "Robust"]:
+        df_l = df[df["Model Target"] == e].copy()
+        df_l[other_names["model_name"]] = df_l["model_name_target"]
+        df_l[other_names["model_name"]] = df_l[other_names["model_name"]].map(model_names)
+        df_plot = df_l.pivot("Budget", other_names["model_name"], "robust_acc")
+
+        def order_series(x):
+            ab = pd.DataFrame(x.str.split("x", expand=True))
+            return ab[0].astype(int) * ab[1].astype(int)
+
+        df_plot = df_plot.sort_values(by=["Budget"], key=order_series)
+        sns.heatmap(df_plot, annot=True, fmt=".2f", cmap="viridis")
+        plt.savefig(_get_filename(f"{name}_{e}"), dpi=DPI, bbox_inches="tight")
+        plt.clf()
+
+    # df_plot = df.pivot("local_name", "model_name_graph", "robust_acc")
+    # df_plot = df_plot.sort_values(
+    #     by=["local_name"], key=lambda x: x.map(attack_plot_order)
+    # )
+    # sns.heatmap(df_plot, annot=True, fmt=".2f", cmap="viridis")
+    # plt.savefig(_get_filename(name), dpi=DPI, bbox_inches="tight")
+    # plt.clf()
+
+
+def ab_1_plot(df, name):
+
+    df = df.copy()
+    df_b = df[
+        ((df["scenario_name"] == "B1") | (df["scenario_name"] == "B2"))
+    ].copy()
+    df_b = df_b[(df_b["n_gen"] == 100) & (df_b["n_offsprings"] == 100)]
+
+    df = df[((df["scenario_name"] == "A1") | (df["scenario_name"] == "A2"))]
+
+    df_augment = df[df["attack_name"] == "CPGD"].copy()
+    df_augment["attack_name"] = "Standard"
+    df_augment["robust_acc"] = df_augment["clean_acc"]
+
+    df = pd.concat([df_augment, df])
+
+    df = pd.concat([df, df_b])
+    df = df.sort_values(by=["attack_name_sort"])
+    df["Scenario"] = df["Scenario"].map(lambda x: f"A{x[1]}")
+
+    lineplot(
+        df,
+        name,
+        x="attack_name",
+        y="robust_acc",
+        hue="Scenario",
+        style="Model Source",
+        x_label="Attack",
+        y_label="Accuracy",
+    )
+
+
+def ab_1_plot_time(df, name):
+
+    df = df.copy()
+    df_b = df[
+        ((df["scenario_name"] == "B1") | (df["scenario_name"] == "B2"))
+    ].copy()
+    df_b = df_b[(df_b["n_gen"] == 100) & (df_b["n_offsprings"] == 100)]
+
+    df = df[((df["scenario_name"] == "A1") | (df["scenario_name"] == "A2"))]
+
+    df = pd.concat([df, df_b])
+    df = df.sort_values(by=["attack_name_sort"])
+    df["Scenario"] = df["Scenario"].map(lambda x: f"A{x[1]}")
+
+    lineplot(
+        df,
+        name,
+        x="attack_name",
+        y="attack_duration",
+        hue="Scenario",
+        style="Model Source",
+        x_label="Attack",
+        y_label="Time (s)",
+    )
+
+
 attack_plot_order = {
     "Standard": 0,
     "Robust": 1,
@@ -267,10 +376,11 @@ def add_local_name(df, scenario_name):
     return df
 
 
-def process_scenario(df, scenario_name):
+def process_scenario(df, scenario_name, only_attack="CAA"):
     df = df.copy()
-    if df["attack_name"].unique().shape[0] > 1:
-        df = df[df["attack_name"] == "CAA"]
+    if only_attack is not None:
+        if df["attack_name"].unique().shape[0] > 1:
+            df = df[df["attack_name"] == only_attack]
 
     df = df[df["Model Target"] != "Subset"]
     df = df[df["Model Target"] != "Distribution"]
@@ -282,13 +392,17 @@ def process_scenario(df, scenario_name):
     if scenario_name == "C":
         df = df[df["model_name"] != df["model_name_target"]]
         df = df[df["Model Source"] != "Robust"]
+        idx_minimized_c = df.groupby(
+            ["local_name", "model_name_target", "attack_name"]
+        )["robust_acc"].idxmin()
+        df = df.loc[idx_minimized_c]
+
+    if scenario_name in ["D", "E"]:
+        df = df[df["model_name"] != df["model_name_target"]]
         idx_minimized_c = df.groupby(["local_name", "model_name_target"])[
             "robust_acc"
         ].idxmin()
         df = df.loc[idx_minimized_c]
-
-    if scenario_name in ["D", "E"]:
-        df = df[df["model_name"] == df["model_name_target"]]
 
     if len(df) == 0:
         return None
@@ -308,7 +422,7 @@ def process_scenario(df, scenario_name):
     df["sort"] = df["local_name"].apply(lambda x: attack_plot_order[x])
     df = df.sort_values(by=["sort"])
 
-    if scenario_name == "C":
+    if scenario_name in ["C", "D", "E"]:
         df["model_name_graph"] = df["model_name_target"]
     else:
         df["model_name_graph"] = df["model_name"]
@@ -351,12 +465,11 @@ def threat_model_plot(df_all, name):
     for e in ["Standard", "Robust"]:
         df = df_new[df_new["local_name"].str.contains(e)].copy()
 
-        print(df)
+        # print(df)
         df.loc[df["attack_name"] == "Standard", "scenario_name"] = ""
         df["graph_name"] = e + " " + df["scenario_name"]
         df["clean_equal"] = df["model_name_graph"] + df["graph_name"]
         df = df.drop_duplicates(subset=["clean_equal"])
-
 
         df_plot = df.pivot("graph_name", "model_name_graph", "robust_acc")
         df_plot = df_plot.sort_values(
@@ -367,6 +480,32 @@ def threat_model_plot(df_all, name):
         plt.savefig(_get_filename(f"{name}_{e}"), dpi=DPI)
         plt.clf()
 
+
+def ac_plot(df_all, name) -> None:
+
+    df_all = df_all.copy()
+    df_new = []
+    for scenario_name in ["A", "C"]:
+        df = df_all[df_all["scenario_name"].str.contains(scenario_name)]
+
+        df = process_scenario(df, scenario_name, only_attack=None)
+        df_new.append(df)
+
+    df_new = pd.concat(df_new)
+    df = df_new.copy()
+
+    df = df[((df["scenario_name"] == "A1") | (df["scenario_name"] == "C1"))]
+
+    df = df.sort_values(by=["attack_name_sort", "Model Target"])
+
+    lineplot(
+        df,
+        name,
+        x="attack_name",
+        y="robust_acc",
+        hue="scenario_name",
+        style="Model Target",
+    )
 
 
 def get_all_data():
@@ -403,8 +542,13 @@ def get_all_data():
 
 def preprocess(df):
     df = df.copy()
+
+    df.loc[df["weight_path_target"].isna(), "weight_path_target"] = df.loc[
+        df["weight_path_target"].isna(), "weight_path"
+    ]
     df["Model Source"] = df["weight_path"].apply(path_to_name)
     df["Model Target"] = df["weight_path_target"].apply(path_to_name)
+
     df["attack_name"] = df["attack_name"].apply(attack_to_name)
 
     df = df[~df["mdc"].isnull()]
@@ -413,7 +557,7 @@ def preprocess(df):
         by=["scenario_name", "Model Source", "attack_name_sort"]
     )
 
-    for e in ["mdc", "clean_acc", "n_gen", "n_offsprings"]:
+    for e in ["mdc", "clean_acc", "n_gen", "n_offsprings", "attack_duration"]:
         df[e] = df[e].astype(float)
     df["robust_acc"] = 1 - df["mdc"]
     df["constraints_access"] = df["constraints_access"].map(
@@ -424,15 +568,34 @@ def preprocess(df):
     df["model_name_target"] = df["weight_path_target"].str.extract(
         f"({pattern})", flags=re.IGNORECASE
     )
+    df = df[df["model_name"] != "deepfm"]
+    df = df[df["model_name_target"] != "deepfm"]
+
+    # Replace caa by caa2
+
+    df = df[df["attack_name"] != "CAA"]
+    df["attack_name"] = df["attack_name"].map(
+        lambda x: "CAA" if x == "CAA2" else x
+    )
+
+    df["Scenario"] = df["scenario_name"]
+
     return df
 
 
 def plot_all(df):
     for ds in df["dataset_name"].unique():
-        # for model in df["model_name"].unique():
-        #     df_l = df[(df["dataset_name"] == ds) & (df["model_name"] == model)]
-        #     a_1_plot(df_l, f"{ds}/a1_a2_{model}")
+        for model in df["model_name"].unique():
+            df_l = df[
+                (df["dataset_name"] == ds) & (df["model_name_target"] == model)
+            ]
+            a_1_plot(df_l, f"{ds}/a1_a2_{model}")
+            ab_1_plot(df_l, f"{ds}/ab_{model}")
+            ab_1_plot_time(df_l, f"{ds}/ab_time_{model}")
+            ac_plot(df_l, f"{ds}/ac_{model}")
+
         df_l = df[(df["dataset_name"] == ds)]
+        b_plot(df_l, f"{ds}/b1")
         for e in ["A", "B", "C", "D", "E"]:
             attack_plot(df_l, e, f"{ds}/attack_{e}")
         for contraints in df["constraints_access"].unique():
@@ -440,7 +603,9 @@ def plot_all(df):
                 (df["dataset_name"] == ds)
                 & (df["constraints_access"] == contraints)
             ]
-            threat_model_plot(df_l, f"{ds}/threat_model_{1 if contraints else 2}")
+            threat_model_plot(
+                df_l, f"{ds}/threat_model_{1 if contraints else 2}"
+            )
 
 
 def new_run() -> None:
