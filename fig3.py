@@ -253,9 +253,41 @@ def a_1_plot(df, name):
     )
 
 
-def acde_plot(df, name):
-    
-    pass
+def acde_plot(df_all, name):
+
+    df_all = df_all[df_all["attack_name"] == "CAA"]
+    df_all = df_all[df_all["scenario_name"].str.contains("1")]
+    df_all = df_all.copy()
+    df_new = []
+    for scenario_name in ["A", "C", "D", "E"]:
+        df = df_all[df_all["scenario_name"].str.contains(scenario_name)]
+        df = process_scenario2(df, scenario_name)
+        df_new.append(df)
+    df_new = pd.concat(df_new)
+
+    df_new = df_new[(df_new["Model Source"] != "Robust") | (~df_all["scenario_name"].str.contains("C"))]
+
+    for target in df_new["Model Target"].unique():
+        df = df_new[df_new["Model Target"] == target]
+
+        # df_augment = df[df["scenario_name"] == "A1"].copy()
+        # df_augment["Scenario"] = "Standard"
+        # df_augment["robust_acc"] = df_augment["clean_acc"]
+        # df = pd.concat([df_augment, df])
+
+        name_l = f"{name}_{target}"
+        df["Model"] = df["model_name_target"].map(model_names)
+        lineplot(
+            df,
+            name_l,
+            x="Scenario",
+            y="robust_acc",
+            hue="Model",
+            # style="Model",
+            x_label="Scenario",
+            y_label="Accuracy",
+        )
+
 
 def b_plot(df, name):
 
@@ -273,7 +305,9 @@ def b_plot(df, name):
     for e in ["Standard", "Robust"]:
         df_l = df[df["Model Target"] == e].copy()
         df_l[other_names["model_name"]] = df_l["model_name_target"]
-        df_l[other_names["model_name"]] = df_l[other_names["model_name"]].map(model_names)
+        df_l[other_names["model_name"]] = df_l[other_names["model_name"]].map(
+            model_names
+        )
         df_plot = df_l.pivot("Budget", other_names["model_name"], "robust_acc")
 
         def order_series(x):
@@ -419,6 +453,49 @@ def process_scenario(df, scenario_name, only_attack="CAA"):
         df_augment["local_name"] = df_augment["Model Target"]
 
     df = pd.concat([df_augment, df])
+    df["sort"] = df["local_name"].apply(lambda x: attack_plot_order[x])
+    df = df.sort_values(by=["sort"])
+
+    if scenario_name in ["C", "D", "E"]:
+        df["model_name_graph"] = df["model_name_target"]
+    else:
+        df["model_name_graph"] = df["model_name"]
+
+    return df
+
+
+def process_scenario2(df, scenario_name, only_attack="CAA"):
+    df = df.copy()
+    if only_attack is not None:
+        if df["attack_name"].unique().shape[0] > 1:
+            df = df[df["attack_name"] == only_attack]
+
+    df = df[df["Model Target"] != "Subset"]
+    df = df[df["Model Target"] != "Distribution"]
+    df = add_local_name(df, scenario_name)
+
+    if scenario_name == "B":
+        df = df[(df["n_gen"] == 100) & (df["n_offsprings"] == 100)]
+
+    if scenario_name in ["D", "E"]:
+        df = df[df["Model Source"].isin(["Subset", "Distribution"])]
+
+    if scenario_name in ["C", "D", "E"]:
+        df = df[df["model_name"] != df["model_name_target"]]
+
+        # group = df.groupby(
+        #     ["local_name", "model_name", "model_name_target", "attack_name"]
+        # )["robust_acc"]
+        # idx_minimized_c = group.idxmin()
+
+        # df = df.loc[idx_minimized_c]
+        # df[["robust_acc_min", "robust_acc_mean", "robust_acc_max"]] = group.agg(
+        #     ["min", "mean", "max"]
+        # ).reset_index()[["min", "mean", "max"]]
+
+    if len(df) == 0:
+        return None
+
     df["sort"] = df["local_name"].apply(lambda x: attack_plot_order[x])
     df = df.sort_values(by=["sort"])
 
@@ -596,6 +673,7 @@ def plot_all(df):
 
         df_l = df[(df["dataset_name"] == ds)]
         b_plot(df_l, f"{ds}/b1")
+        acde_plot(df_l, f"{ds}/acde")
         for e in ["A", "B", "C", "D", "E"]:
             attack_plot(df_l, e, f"{ds}/attack_{e}")
         for contraints in df["constraints_access"].unique():
