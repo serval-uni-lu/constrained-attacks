@@ -40,6 +40,7 @@ from constrained_attacks.attacks.cta.caa import (
     ConstrainedAutoAttack,
     ConstrainedMultiAttack,
     ConstrainedAutoAttack2,
+    ConstrainedAutoAttack3,
 )
 from constrained_attacks.attacks.moeva.moeva import Moeva2
 
@@ -103,6 +104,10 @@ def run_experiment(
             ),
             "caa2": (
                 ConstrainedAutoAttack2,
+                {"constraints_eval": constraints_eval, "n_jobs": n_jobs},
+            ),
+            "caa3": (
+                ConstrainedAutoAttack3,
                 {"constraints_eval": constraints_eval, "n_jobs": n_jobs},
             ),
         }

@@ -627,3 +627,248 @@ class ConstrainedAutoAttack2(Attack):
 
     def get_seed(self):
         return int(time.time()) if self.seed is None else self.seed
+
+
+class ConstrainedAutoAttack3(Attack):
+    r"""
+    Extended AutoAttack in the paper 'Reliable evaluation of adversarial robustness with an ensemble of diverse parameter-free attacks'
+    [https://arxiv.org/abs/2003.01690]
+    [https://github.com/fra31/auto-attack]
+
+    with constrained examples
+
+    Distance Measure : Linf, L2
+
+    Arguments:
+        constraints (Constraints) : The constraint object to be checked successively
+        scaler (TabScaler): scaler used to transform the inputs
+        model (nn.Module): model to attack.
+        norm (str) : Lp-norm to minimize. ['Linf', 'L2'] (Default: 'Linf')
+        eps (float): maximum perturbation. (Default: 0.3)
+        version (bool): version. ['standard', 'plus', 'rand'] (Default: 'standard')
+        n_classes (int): number of classes. (Default: 10)
+        seed (int): random seed for the starting point. (Default: 0)
+        verbose (bool): print progress. (Default: False)
+
+    Shape:
+        - images: :math:`(N, C, H, W)` where `N = number of batches`, `C = number of channels`,        `H = height` and `W = width`. It must have a range [0, 1].
+        - labels: :math:`(N)` where each value :math:`y_i` is :math:`0 \leq y_i \leq` `number of labels`.
+        - output: :math:`(N, C, H, W)`.
+
+    Examples::
+        >>> attack = torchattacks.AutoAttack(model, norm='Linf', eps=8/255, version='standard', n_classes=10, seed=None, verbose=False)
+        >>> adv_images = attack(images, labels)
+
+    """
+
+    def __init__(
+        self,
+        constraints: Constraints,
+        constraints_eval: Constraints,
+        scaler: TabScaler,
+        model,
+        model_objective,
+        n_jobs=-1,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
+        eps_margin=0.01,
+        norm="Linf",
+        eps=8 / 255,
+        version="standard",
+        n_classes=10,
+        seed=None,
+        verbose=False,
+    ):
+        super().__init__("AutoAttack", model)
+        self.norm = norm
+        self.eps = eps
+        self.version = version
+        self.n_classes = n_classes
+        self.seed = seed
+        self.verbose = verbose
+        self.supported_mode = ["default"]
+        self.constraints = constraints
+        self.constraints_eval = constraints_eval
+        self.scaler = scaler
+        self.eps_margin = eps_margin
+        self.fix_equality_constraints_end = fix_equality_constraints_end
+        self.fix_equality_constraints_iter = fix_equality_constraints_iter
+        self.n_jobs = n_jobs
+
+        if self.constraints_eval.relation_constraints is not None:
+            self.objective_calculator = ObjectiveCalculator(
+                model_objective,
+                constraints=self.constraints_eval,
+                thresholds={"distance": eps},
+                norm=norm,
+                fun_distance_preprocess=self.scaler.transform,
+            )
+            self.constraints_executor = ConstraintsExecutor(
+                AndConstraint(self.constraints_eval.relation_constraints),
+                PytorchBackend(),
+                feature_names=self.constraints_eval.feature_names,
+            )
+        else:
+            self.objective_calculator = None
+            self.constraints_executor = None
+
+        if version == "standard":  # ['c-apgd-ce', 'c-fab', 'Moeva2']
+            self._autoattack = ConstrainedMultiAttack(
+                self.objective_calculator,
+                [
+                    CPGDL2(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                    ),
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    Moeva2(
+                        model_objective,
+                        constraints=constraints,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        fun_distance_preprocess=scaler.transform,
+                        n_jobs=n_jobs,
+                    ),
+                ],
+            )
+
+        # ['apgd-ce', 'apgd-dlr', 'fab', 'square', 'apgd-t', 'fab-t']
+        elif version == "plus":
+            self._autoattack = ConstrainedMultiAttack(
+                self.objective_calculator,
+                [
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                        n_restarts=5,
+                    ),
+                    CFAB(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        n_classes=n_classes,
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    Moeva2(
+                        model,
+                        constraints=constraints,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        fun_distance_preprocess=scaler.transform,
+                        n_jobs=n_jobs,
+                    ),
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                    CFAB(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        multi_targeted=True,
+                        n_classes=n_classes,
+                        n_restarts=1,
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                    ),
+                ],
+            )
+
+        elif version == "rand":
+            self._autoattack = MultiAttack(
+                [
+                    CAPGD(
+                        constraints,
+                        scaler,
+                        model,
+                        model_objective,
+                        eps=eps,
+                        norm=norm,
+                        seed=self.get_seed(),
+                        verbose=verbose,
+                        loss="ce",
+                        fix_equality_constraints_end=fix_equality_constraints_end,
+                        fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        eps_margin=eps_margin,
+                        eot_iter=20,
+                        n_restarts=1,
+                    ),
+                ]
+            )
+
+        else:
+            raise ValueError("Not valid version. ['standard', 'plus', 'rand']")
+
+    def forward(self, images, labels):
+        r"""
+        Overridden.
+        """
+
+        images = images.clone().detach().to(self.device)
+        labels = labels.clone().detach().to(self.device)
+        adv_images = self._autoattack(images, labels)
+
+        return adv_images
+
+    def get_seed(self):
+        return int(time.time()) if self.seed is None else self.seed
