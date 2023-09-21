@@ -172,6 +172,8 @@ def run_experiment(
         endt = time.time()
         experiment.log_metric("attack_duration", endt - startt, step=batch_idx)
         if isinstance(attack.attacks[0], ConstrainedMultiAttack):
+            for e in range(10):
+                print("----------------------------")
             experiment.log_metric(
                 "attack_duration_steps_sum", np.sum(attack.attacks[0].attack_times), step=batch_idx
             )
