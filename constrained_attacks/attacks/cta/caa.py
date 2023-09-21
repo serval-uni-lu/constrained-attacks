@@ -30,6 +30,7 @@ class ConstrainedMultiAttack(MultiAttack):
     def __init__(self, objective_calculator, *args, **kargs):
         super(ConstrainedMultiAttack, self).__init__(*args, **kargs)
         self.objective_calculator = objective_calculator
+        self.attack_times = []
 
     # Override from upper class
     # Moeva does not use the same model as other attacks
@@ -65,7 +66,10 @@ class ConstrainedMultiAttack(MultiAttack):
         for attack_i, attack in enumerate([NoAttack()] + self.attacks):
 
             # Attack the one that failed so far
+
+            start_time = time.time()
             adv_images = attack(images[fails], labels[fails])
+            self.attack_times.append(time.time() - start_time)
 
             # Correct shape
             filter_adv = (
