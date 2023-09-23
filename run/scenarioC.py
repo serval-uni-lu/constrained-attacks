@@ -164,7 +164,7 @@ def run(dataset_name: str, model_name_source: str, model_name_target: str,  atta
         
             last_adv = run_experiment(model_source,model_target, dataset, scaler, x_test, y_test, args, save_examples, filter_class=filter_class,
                         n_jobs=n_jobs,
-                        constraints=constraints, project_name="scenario_C2_v2", constraints_eval=constraints_eval, override_adv=last_adv)
+                        constraints=constraints, project_name="scenario_E_v1", constraints_eval=constraints_eval, override_adv=last_adv)
 
 
 if __name__ == "__main__":
