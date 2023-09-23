@@ -67,6 +67,7 @@ def run_experiment(
     project_name="scenario_A1_v11",
     constraints_eval=None,
     override_adv=None,
+    seed:int = 0,
 ):
     experiment = XP(
         {**args, "filter_class": filter_class}, project_name=project_name
@@ -116,7 +117,7 @@ def run_experiment(
 
     # In scneario A1, the attacker is aware of the constraints or the mutable features
     constraints = copy.deepcopy(constraints)
-    attack_args = {"eps": args.get("max_eps"), "norm": "L2", **attack_class[1]}
+    attack_args = {"eps": args.get("max_eps"), "norm": "L2", "seed": seed, **attack_class[1]}
 
     model_attack = model.wrapper_model if attack_name != "moeva" else model
 
@@ -399,6 +400,7 @@ def run(
     n_offsprings=100,
     model_name_target=None,
     custom_path_target=None,
+    seed:int=0,
 ):
     # Load data
 
@@ -517,6 +519,7 @@ def run(
                 project_name=project_name,
                 constraints_eval=constraints_eval,
                 override_adv=last_adv,
+                seed=seed,
             )
 
 
@@ -567,6 +570,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_offsprings", type=int, default=100)
     parser.add_argument("--model_name_target", type=str, default=None)
     parser.add_argument("--custom_path_target", type=str, default=None)
+    parser.add_argument("--seed", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -588,4 +592,5 @@ if __name__ == "__main__":
         n_offsprings=args.n_offsprings,
         model_name_target=args.model_name_target,
         custom_path_target=args.custom_path_target,
+        seed=args.seed
     )
