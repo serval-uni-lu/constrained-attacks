@@ -171,11 +171,13 @@ def run_experiment(
 
         endt = time.time()
         experiment.log_metric("attack_duration", endt - startt, step=batch_idx)
-        if isinstance(attack.attacks[0], ConstrainedMultiAttack):
+        # for e in range(20):
+        #     print(attack.attacks[0].__name__)
+        if isinstance(attack.attacks[0], ConstrainedAutoAttack3):
             for e in range(10):
                 print("----------------------------")
             experiment.log_metric(
-                "attack_duration_steps_sum", np.sum(attack.attacks[0].attack_times), step=batch_idx
+                "attack_duration_steps_sum", np.sum(attack.attacks[0]._autoattack.attack_times), step=batch_idx
             )
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
