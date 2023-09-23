@@ -25,7 +25,7 @@ do
     do
         for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_default.model" "../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
         do
-            for SCENARIO in "--constraints_access --project_name scenario_C1v10" "--no-constraints_access --project_name scenario_C2v10"
+            for SCENARIO in "--constraints_access --project_name scenario_C1v11" "--no-constraints_access --project_name scenario_C2v11"
             do
                 list_target_path=""
                 for model in "${MODEL_TARGET[@]}"; do

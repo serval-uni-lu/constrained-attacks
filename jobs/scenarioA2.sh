@@ -9,7 +9,7 @@ FILTER_CLASS=1
 DEVICE="cpu"
 SEED="${SEED:-0}"
 
-SCENARIO="--no-constraints_access --project_name scenario_A2_time"
+SCENARIO="--no-constraints_access --project_name scenario_A2v18"
 
 for DATASET in lcld_v2_iid url ctu_13_neris
 do
