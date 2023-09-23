@@ -20,7 +20,7 @@ fi
 
 for DATASET in lcld_v2_iid url ctu_13_neris
 do
-    for MODEL in tabtransformer torchrln deepfm vime
+    for MODEL in tabtransformer torchrln vime
     do
         for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_default.model" "../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
         do

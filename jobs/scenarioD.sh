@@ -4,11 +4,11 @@ DEVICES=0
 SUBSET=1000
 BATCH_SIZE=1024
 MAX_EPS=0.5
-ATTACK="pgdl2+apgd+caa"
+ATTACK="caa3"
 FILTER_CLASS=1
 DEVICE="cpu"
 
-MODEL_TARGET=("tabtransformer" "deepfm" "torchrln" "vime")
+MODEL_TARGET=("tabtransformer" "torchrln" "vime")
 
 for model in "${MODEL_TARGET[@]}"; do
     if [ -n "$model_taget_name" ]; then
@@ -18,13 +18,13 @@ for model in "${MODEL_TARGET[@]}"; do
     fi
 done
 
-for DATASET in lcld_v2_iid
+for DATASET in lcld_v2_iid url ctu_13_neris
 do
-    for MODEL in tabtransformer torchrln deepfm vime
+    for MODEL in tabtransformer torchrln vime
     do
         for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_subset.model"
         do
-            for SCENARIO in "--no-constraints_access --project_name scenario_Dv10"
+            for SCENARIO in "--no-constraints_access --project_name scenario_Dv10" "--constraints_access --project_name scenario_D1v10"
             do
                 list_target_path=""
                 for model in "${MODEL_TARGET[@]}"; do

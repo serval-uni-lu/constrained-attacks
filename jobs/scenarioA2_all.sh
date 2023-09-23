@@ -4,15 +4,15 @@ DEVICES=0
 SUBSET=1000
 BATCH_SIZE=1024
 MAX_EPS=0.5
-ATTACK="pgdl2+apgd+caa"
+ATTACK="pgdl2+apgd+caa3"
 FILTER_CLASS=1
 DEVICE="cpu"
 
-SCENARIO="--constraints_access False --project_name scenario_A2v12"
+SCENARIO="--no-constraints_access --project_name scenario_A2_time"
 
-for DATASET in lcld_v2_iid
+for DATASET in lcld_v2_iid url ctu_13_neris
 do
-    for MODEL in tabtransformer torchrln
+    for MODEL in tabtransformer torchrln deepfm vime
     do
         for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_default.model" "../models/mlc/best_models/${MODEL}_${DATASET}_madry.model"
         do
