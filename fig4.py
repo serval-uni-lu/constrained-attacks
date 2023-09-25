@@ -895,7 +895,75 @@ def plot_acde(df, name, intermediate_agg=False):
                 x_label="Scenario",
                 y_label="Accuracy",
                 y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
+                error_min_max=True,
             )
+
+
+def plot_b(df, name):
+
+    df = df.copy()
+
+    # Filter
+    df = df[df["scenario_name"].isin(["B1", "B2"])]
+
+    df = df.groupby(GROUP_BY)["robust_acc"].agg(["mean", "std"]).reset_index()
+
+    df["robust_acc"] = df["mean"]
+
+    df["mean_std"] = (
+        df["mean"].map("{:.3f}".format)
+        + "\n std: "
+        + df["std"].map("{:.3f}".format)
+    )
+
+    df["Budget"] = (
+        df["n_gen"].astype(int).astype(str)
+        + "x"
+        + df["n_offsprings"].astype(int).astype(str)
+    )
+
+    df_all = df
+
+    df["Model"] = df["model_name_target"].map(model_names)
+
+    for target in df_all["Model Target"].unique():
+
+        df_t = df_all[df_all["Model Target"] == target]
+
+        for scenario_constraints in ["1", "2"]:
+            df = df_t[
+                df_t["scenario_name"].str.contains(scenario_constraints)
+            ].copy()
+
+            df_pivot = df.pivot(
+                columns="Model",
+                index="Budget",
+                values="robust_acc",
+            )
+            df_annot = df.pivot(
+                columns="Model",
+                index="Budget",
+                values="mean_std",
+            )
+
+            def order_series(x):
+                ab = pd.DataFrame(x.str.split("x", expand=True))
+                return ab[0].astype(int) * ab[1].astype(int)
+
+            df_pivot = df_pivot.sort_values(by=["Budget"], key=order_series)
+            df_annot = df_annot.sort_values(by=["Budget"], key=order_series)
+            sns.heatmap(
+                df_pivot,
+                annot=df_annot,
+                fmt="",
+                cmap="viridis",
+            )
+            plt.savefig(
+                _get_filename(f"{name}_{target}_{scenario_constraints}"),
+                dpi=DPI,
+                bbox_inches="tight",
+            )
+            plt.clf()
 
 
 def table_2_attack(df, name):
@@ -925,6 +993,7 @@ def table_2_attack(df, name):
     )
     pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
     pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
+    return df
 
 
 def table_2_defense(df, name):
@@ -959,6 +1028,7 @@ def table_2_defense(df, name):
     )
     pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
     pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
+    return df
 
 
 def table_2(df, name):
@@ -982,8 +1052,26 @@ def table_2(df, name):
     df = df[df["Model Source"] != "Robust"]
     df = df.groupby(GROUP_BY)["robust_acc"].mean().reset_index()
 
-    table_2_attack(df, name)
-    table_2_defense(df, name)
+    df_attack = table_2_attack(df, name)
+    df_defense = table_2_defense(df, name)
+
+    df_attack["mode"] = "attack"
+    df_defense["mode"] = "defense"
+
+    df_all = pd.concat([df_attack, df_defense])
+    df_all.loc[df_all["model_name"].isnull(), "model_name"] = df_all.loc[
+        df_all["model_name"].isnull(), "model_name_target"
+    ]
+
+    df_all = df_all.pivot(
+        columns=["mode", "scenario_name"],
+        index=["Model Target", "model_name"],
+        values=["rank"],
+    )
+    df_all = df_all.sort_index()
+    df_all = df_all.sort_index(axis=0, ascending=[False, True])
+
+    df_all.to_csv(_get_filename(f"{name}_all") + ".csv")
 
 
 def plot_all(df):
@@ -992,16 +1080,17 @@ def plot_all(df):
             df_l = df[
                 (df["dataset_name"] == ds) & (df["model_name_target"] == model)
             ]
-        #     plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
-        #     plot_ab_time(df_l, f"{ds}/ab_time_{model}")
-        # plot_acde(df[df["dataset_name"] == ds], f"{ds}/acde")
-        # plot_acde(
-        #     df[df["dataset_name"] == ds],
-        #     f"{ds}/acde_agg",
-        #     intermediate_agg=True,
-        # )
-        if ds == "lcld_v2_iid":
-            table_2(df[df["dataset_name"] == ds], f"{ds}/table_2")
+            plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
+            plot_ab_time(df_l, f"{ds}/ab_time_{model}")
+        plot_acde(df[df["dataset_name"] == ds], f"{ds}/acde")
+        plot_acde(
+            df[df["dataset_name"] == ds],
+            f"{ds}/acde_agg",
+            intermediate_agg=True,
+        )
+        plot_b(df[df["dataset_name"] == ds], f"{ds}/b")
+        # if ds == "lcld_v2_iid":
+        table_2(df[df["dataset_name"] == ds], f"{ds}/table_2")
 
 
 def new_run() -> None:
