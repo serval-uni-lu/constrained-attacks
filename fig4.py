@@ -865,7 +865,9 @@ def plot_acde(df, name, intermediate_agg=False):
         df_delta = df_max - df_min
 
         for scenario_constraints in ["1", "2"]:
-            df = df_t[df_t["scenario_name"].str.contains(scenario_constraints)].copy()
+            df = df_t[
+                df_t["scenario_name"].str.contains(scenario_constraints)
+            ].copy()
             name_l = f"{name}_{target}_{scenario_constraints}"
 
             if intermediate_agg:
@@ -896,38 +898,110 @@ def plot_acde(df, name, intermediate_agg=False):
             )
 
 
+def table_2_attack(df, name):
+    name = name + "_attack"
+
+    df["rank"] = df.groupby(
+        ["scenario_name", "model_name_target", "Model Target"]
+    )["robust_acc"].rank()
+    df_mean = (
+        df.groupby(["model_name", "Model Target"])["rank"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    pivot_mean = df_mean.set_index(["Model Target", "model_name"]).sort_index()
+
+    df = (
+        df.groupby(["scenario_name", "model_name", "Model Target"])["rank"]
+        .mean()
+        .reset_index()
+    )
+    pivot = df.pivot(
+        columns=[
+            "scenario_name",
+        ],
+        index=["Model Target", "model_name"],
+        values=["rank"],
+    )
+    pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
+    pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
+
+
+def table_2_defense(df, name):
+    name = name + "_defense"
+
+    df["rank"] = df.groupby(["scenario_name", "model_name", "Model Target"])[
+        "robust_acc"
+    ].rank()
+
+    df_mean = (
+        df.groupby(["model_name_target", "Model Target"])["rank"]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    pivot_mean = df_mean.set_index(
+        ["Model Target", "model_name_target"]
+    ).sort_index()
+
+    df = (
+        df.groupby(["scenario_name", "model_name_target", "Model Target"])[
+            "rank"
+        ]
+        .mean()
+        .reset_index()
+    )
+    pivot = df.pivot(
+        columns=[
+            "scenario_name",
+        ],
+        index=["Model Target", "model_name_target"],
+        values=["rank"],
+    )
+    pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
+    pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
+
+
+def table_2(df, name):
+    df = df.copy()
+
+    # Filter
+    df = df[
+        df["scenario_name"].isin(
+            [
+                "C1",
+                "D1",
+                "E1",
+            ]
+        )
+    ]
+    df = df[df["attack_name"] == "CAA"]
+
+    df = filter_unlikely_scenario(df)
+
+    # ATTACKER SIDE
+    df = df[df["Model Source"] != "Robust"]
+    df = df.groupby(GROUP_BY)["robust_acc"].mean().reset_index()
+
+    table_2_attack(df, name)
+    table_2_defense(df, name)
+
+
 def plot_all(df):
     for ds in df["dataset_name"].unique():
         for model in df["model_name"].unique():
             df_l = df[
                 (df["dataset_name"] == ds) & (df["model_name_target"] == model)
             ]
-            # a_1_plot(df_l, f"{ds}/a1_a2_{model}")
-            # ab_1_plot(df_l, f"{ds}/ab_{model}")
-            # ab_1_plot_time(df_l, f"{ds}/ab_time_{model}")
-            # ac_plot(df_l, f"{ds}/ac_{model}")
-            plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
-            plot_ab_time(df_l, f"{ds}/ab_time_{model}")
-        plot_acde(df[df["dataset_name"] == ds], f"{ds}/acde")
-        plot_acde(
-            df[df["dataset_name"] == ds],
-            f"{ds}/acde_agg",
-            intermediate_agg=True,
-        )
-
-        # df_l = df[(df["dataset_name"] == ds)]
-        # b_plot(df_l, f"{ds}/b1")
-        # acde_plot(df_l, f"{ds}/acde")
-        # for e in ["A", "B", "C", "D", "E"]:
-        #     attack_plot(df_l, e, f"{ds}/attack_{e}")
-        # for contraints in df["constraints_access"].unique():
-        #     df_l = df[
-        #         (df["dataset_name"] == ds)
-        #         & (df["constraints_access"] == contraints)
-        #     ]
-        #     threat_model_plot(
-        #         df_l, f"{ds}/threat_model_{1 if contraints else 2}"
-        #     )
+        #     plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
+        #     plot_ab_time(df_l, f"{ds}/ab_time_{model}")
+        # plot_acde(df[df["dataset_name"] == ds], f"{ds}/acde")
+        # plot_acde(
+        #     df[df["dataset_name"] == ds],
+        #     f"{ds}/acde_agg",
+        #     intermediate_agg=True,
+        # )
+        if ds == "lcld_v2_iid":
+            table_2(df[df["dataset_name"] == ds], f"{ds}/table_2")
 
 
 def new_run() -> None:
