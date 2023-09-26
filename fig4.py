@@ -38,6 +38,12 @@ other_names = {
     "model_name": "Model",
 }
 
+dataset_names = {
+    "url": "URL",
+    "lcld_v2_iid": "LCLD",
+    "ctu_13_neris": "CTU",
+}
+
 
 GROUP_BY = [
     "dataset_name",
@@ -1074,7 +1080,57 @@ def table_2(df, name):
     df_all.to_csv(_get_filename(f"{name}_all") + ".csv")
 
 
+def table_moeva(df, name):
+    df = df.copy()
+
+    df = df[df["scenario_name"].isin(["B1"])]
+    df = (
+        df.groupby(GROUP_BY)["robust_acc"]
+        .agg(["mean", "std", "sem"])
+        .reset_index()
+    )
+
+    df["robust_acc"] = df["mean"]
+
+    df["mean_std"] = (
+        "$"
+        + df["mean"].map("{:.3f}".format)
+        + "$"
+        + "\\small{$\\pm "
+        + (1.96 * df["sem"]).map("{:.3f}".format)
+        + "$}"
+    )
+
+    df["Budget"] = (
+        df["n_gen"].astype(int).astype(str)
+        + "x"
+        + df["n_offsprings"].astype(int).astype(str)
+    )
+
+    def order_series(list_x):
+        if list_x[0] in ["Robust", "Standard"]:
+            return list_x
+        out = []
+        for x in list_x:
+            ab = x.split("x")
+            out.append(int(ab[0]) * int(ab[1]))
+        return pd.Series(out)
+
+    df["Model"] = df["model_name_target"].map(model_names)
+    df["dataset_name"] = df["dataset_name"].map(dataset_names)
+    df = df.pivot(
+        columns=["dataset_name", "Model"],
+        index=["Model Target", "Budget"],
+        values=["mean_std"],
+    )
+    df = df.sort_index(axis=1, ascending=[True, False, True])
+    df = df.sort_index(axis=0, ascending=[False, True], key=order_series)
+
+    df.to_csv(_get_filename(f"{name}") + ".csv")
+
+
 def plot_all(df):
+    table_moeva(df, "moeva")
     for ds in df["dataset_name"].unique():
         for model in df["model_name"].unique():
             df_l = df[
