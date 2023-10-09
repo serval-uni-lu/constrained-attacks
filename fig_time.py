@@ -229,7 +229,7 @@ def get_xp_data(xp, scenario_name):
     }
 
 
-def get_data(scenarios, scenario_names, path="xp.json"):
+def get_data(scenarios, scenario_names, path="xp_time.json"):
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
@@ -656,31 +656,21 @@ def get_all_data():
     scenario_names = [
         "A1",
         "A2",
-        # "A1_time",
-        # "A2_time",
-        "B1",
-        "B2",
-        "C1",
-        "C2",
-        "D1",
-        "D2",
-        "E1",
-        "E2",
     ]
     out = get_data(
         [
-            "scenario-a1v18",
-            "scenario-a2v18",
+            "scenario-ab1-timev1",
+            "scenario-ab2-time-v1",
             # "scenario-a1-time",
             # "scenario-a2-time",
-            "scenario-b1v11",
-            "scenario-b2v11",
-            "scenario-c1v11",
-            "scenario-c2v11",
-            "scenario-d1v11",
-            "scenario-dv11",
-            "scenario-e1v11",
-            "scenario-e2v11",
+            # "scenario-b1v11",
+            # "scenario-b2v11",
+            # "scenario-c1v11",
+            # "scenario-c2v11",
+            # "scenario-d1v11",
+            # "scenario-dv11",
+            # "scenario-e1v11",
+            # "scenario-e2v11",
         ],
         scenario_names,
     )
@@ -828,7 +818,7 @@ def plot_ab_time(df, name):
         hue="Scenario",
         style="Model Source",
         x_label="Attack",
-        y_label="Accuracy",
+        y_label="Time (s)",
     )
 
 
@@ -1371,26 +1361,15 @@ def table_acde(df, name):
 
 
 def plot_all(df):
-    table_moeva(df, "moeva")
-    table_ab(df, "table_ab_acc", "robust_acc")
     table_ab(df, "table_ab_time", "attack_duration")
-    table_acde(df, "table_acde")
     for ds in df["dataset_name"].unique():
         for model in df["model_name"].unique():
             df_l = df[
                 (df["dataset_name"] == ds) & (df["model_name_target"] == model)
             ]
-            plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
             plot_ab_time(df_l, f"{ds}/ab_time_{model}")
-        plot_acde(df[df["dataset_name"] == ds], f"{ds}/acde")
-        plot_acde(
-            df[df["dataset_name"] == ds],
-            f"{ds}/acde_agg",
-            intermediate_agg=True,
-        )
-        plot_b(df[df["dataset_name"] == ds], f"{ds}/b")
-        # if ds == "lcld_v2_iid":
-        table_2(df[df["dataset_name"] == ds], f"{ds}/table_2")
+            plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
+
 
 
 def new_run() -> None:

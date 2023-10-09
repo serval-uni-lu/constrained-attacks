@@ -120,7 +120,7 @@ def barplot(
 
 def sort_attack_name(attack: str) -> int:
     # print(f"attack {attack}")
-    for i, e in enumerate(["CPGD", "CAPGD", "MOEVA", "CAA", "CAA2"]):
+    for i, e in enumerate(["CPGD", "CAPGD", "MOEVA", "CAA", "CAA2", "CAA3"]):
         # print(e)
         if e == attack:
             # print(i)
@@ -256,8 +256,8 @@ def a_1_plot(df, name):
 def acde_plot(df_all, name):
 
     df_all = df_all[df_all["attack_name"] == "CAA"]
-    df_all = df_all[df_all["scenario_name"].str.contains("1")]
     df_all = df_all.copy()
+
     df_new = []
     for scenario_name in ["A", "C", "D", "E"]:
         df = df_all[df_all["scenario_name"].str.contains(scenario_name)]
@@ -265,7 +265,10 @@ def acde_plot(df_all, name):
         df_new.append(df)
     df_new = pd.concat(df_new)
 
-    df_new = df_new[(df_new["Model Source"] != "Robust") | (~df_all["scenario_name"].str.contains("C"))]
+    df_new = df_new[
+        (df_new["Model Source"] != "Robust")
+        | (~df_all["scenario_name"].str.contains("C"))
+    ]
 
     for target in df_new["Model Target"].unique():
         df = df_new[df_new["Model Target"] == target]
@@ -274,19 +277,24 @@ def acde_plot(df_all, name):
         # df_augment["Scenario"] = "Standard"
         # df_augment["robust_acc"] = df_augment["clean_acc"]
         # df = pd.concat([df_augment, df])
-
-        name_l = f"{name}_{target}"
-        df["Model"] = df["model_name_target"].map(model_names)
-        lineplot(
-            df,
-            name_l,
-            x="Scenario",
-            y="robust_acc",
-            hue="Model",
-            # style="Model",
-            x_label="Scenario",
-            y_label="Accuracy",
-        )
+        df_min = df["robust_acc"].min()
+        df_max = df["robust_acc"].max()
+        df_delta = df_max - df_min
+        print(f"-------------------- {df_min} {df_max}")
+        for c in ["1", "2"]:
+            name_l = f"{name}_{target}_{c}"
+            df["Model"] = df["model_name_target"].map(model_names)
+            lineplot(
+                df[df["scenario_name"].str.contains(c)],
+                name_l,
+                x="Scenario",
+                y="robust_acc",
+                hue="Model",
+                # style="Model",
+                x_label="Scenario",
+                y_label="Accuracy",
+                y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
+            )
 
 
 def b_plot(df, name):
@@ -374,6 +382,9 @@ def ab_1_plot_time(df, name):
     df = df.sort_values(by=["attack_name_sort"])
     df["Scenario"] = df["Scenario"].map(lambda x: f"A{x[1]}")
 
+    df_min, df_max = df["attack_duration"].min(), df["attack_duration"].max()
+    df_delta = df_max - df_min
+
     lineplot(
         df,
         name,
@@ -383,6 +394,7 @@ def ab_1_plot_time(df, name):
         style="Model Source",
         x_label="Attack",
         y_label="Time (s)",
+        # y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
     )
 
 
@@ -589,6 +601,8 @@ def get_all_data():
     scenario_names = [
         "A1",
         "A2",
+        # "A1_time",
+        # "A2_time",
         "B1",
         "B2",
         "C1",
@@ -600,16 +614,18 @@ def get_all_data():
     ]
     out = get_data(
         [
-            "scenario-a1v16",
-            "scenario-a2v16",
-            "scenario-b1v10",
-            "scenario-b2v10",
-            "scenario-c1v10",
-            "scenario-c2v10",
-            "scenario-d1v10",
-            "scenario-dv10",
-            "scenario-e1v10",
-            "scenario-e2v10",
+            "scenario-a1v18",
+            "scenario-a2v18",
+            # "scenario-a1-time",
+            # "scenario-a2-time",
+            "scenario-b1v11",
+            "scenario-b2v11",
+            "scenario-c1v11",
+            "scenario-c2v11",
+            "scenario-d1v11",
+            "scenario-dv11",
+            "scenario-e1v11",
+            "scenario-e2v11",
         ],
         scenario_names,
     )
@@ -620,47 +636,95 @@ def get_all_data():
 def preprocess(df):
     df = df.copy()
 
+    # Remove unfinished experiments
+    df = df[~df["mdc"].isnull()]
+
+    # Replace caa by caa3
+
+    df = df[df["attack_name"] != "CAA"]
+    df = df[df["attack_name"] != "CAA2"]
+    df["attack_name"] = df["attack_name"].map(
+        lambda x: "CAA" if x == "CAA3" else x
+    )
+
+    # Retrieve time
+    filter_attack_duration = ~(df["attack_duration_steps_sum"].isnull())
+    df.loc[filter_attack_duration, "attack_duration"] = df.loc[
+        filter_attack_duration, "attack_duration_steps_sum"
+    ]
+
+    # Parse types
+    for e in ["mdc", "clean_acc", "n_gen", "n_offsprings", "attack_duration"]:
+        df[e] = df[e].astype(float)
+
+    df["constraints_access"] = df["constraints_access"].map(
+        {"true": True, "false": False}
+    )
+
+    # Robust accuracy
+    df["robust_acc"] = 1 - df["mdc"]
+
+    # Parse model type
+
+    model_names = ["vime", "deepfm", "torchrln", "tabtransformer"]
+    pattern = "|".join(map(re.escape, model_names))
+    df["model_name_target"] = df["weight_path_target"].str.extract(
+        f"({pattern})", flags=re.IGNORECASE
+    )
+    df["attack_duration"].astype(float)
+
+    # Rename key
+    df["Scenario"] = df["scenario_name"]
+
+    # Set model target and source (Type)
+
     df.loc[df["weight_path_target"].isna(), "weight_path_target"] = df.loc[
         df["weight_path_target"].isna(), "weight_path"
     ]
     df["Model Source"] = df["weight_path"].apply(path_to_name)
     df["Model Target"] = df["weight_path_target"].apply(path_to_name)
 
+    # Beautify attack names
+
     df["attack_name"] = df["attack_name"].apply(attack_to_name)
 
-    df = df[~df["mdc"].isnull()]
+    # Sort dataframe
     df["attack_name_sort"] = df["attack_name"].apply(sort_attack_name)
     df = df.sort_values(
         by=["scenario_name", "Model Source", "attack_name_sort"]
     )
 
-    for e in ["mdc", "clean_acc", "n_gen", "n_offsprings", "attack_duration"]:
-        df[e] = df[e].astype(float)
-    df["robust_acc"] = 1 - df["mdc"]
-    df["constraints_access"] = df["constraints_access"].map(
-        {"true": True, "false": False}
-    )
-    model_names = ["vime", "deepfm", "torchrln", "tabtransformer"]
-    pattern = "|".join(map(re.escape, model_names))
-    df["model_name_target"] = df["weight_path_target"].str.extract(
-        f"({pattern})", flags=re.IGNORECASE
-    )
+    # Remove DeepFm
     df = df[df["model_name"] != "deepfm"]
     df = df[df["model_name_target"] != "deepfm"]
 
-    # Replace caa by caa2
+    group = df.groupby(
+        [
+            "dataset_name",
+            "attack_name",
+            "model_name_target",
+            "Model Source",
+            "Model Target",
+            "model_name",
+            "scenario_name",
+            "n_gen",
+            "n_offsprings",
+        ]
+    ).size()
 
-    df = df[df["attack_name"] != "CAA"]
-    df["attack_name"] = df["attack_name"].map(
-        lambda x: "CAA" if x == "CAA2" else x
-    )
-
-    df["Scenario"] = df["scenario_name"]
+    new_df = group.agg(
+        {
+            "robust_acc": ["min", "mean", "max", "std"],
+            "attack_duration": ["min", "mean", "max", "std"],
+            "clean_acc": ["min", "mean", "max", "std"],
+        }
+    ).reset_index()
 
     return df
 
 
 def plot_all(df):
+    return None
     for ds in df["dataset_name"].unique():
         for model in df["model_name"].unique():
             df_l = df[
