@@ -19,6 +19,7 @@ from mlc.constraints.pytorch_backend import PytorchBackend
 from mlc.constraints.relation_constraint import AndConstraint
 from mlc.transformers.tab_scaler import TabScaler
 from mlc.utils import to_numpy_number
+from mlc.constraints.numpy_backend import NumpyBackend
 
 
 class NoAttack:
@@ -31,6 +32,10 @@ class ConstrainedMultiAttack(MultiAttack):
         super(ConstrainedMultiAttack, self).__init__(*args, **kargs)
         self.objective_calculator = objective_calculator
         self.attack_times = []
+        self.robust_accuracies = []
+        self.constraints_rate = []
+        self.distance_ok = []
+        self.mdc = []
 
     # Override from upper class
     # Moeva does not use the same model as other attacks
@@ -62,6 +67,43 @@ class ConstrainedMultiAttack(MultiAttack):
         labels = labels.clone().detach().to(self.device)
 
         multi_atk_records = [batch_size]
+        
+        def constraints_distance(c, x):
+
+            x_dim = len(x.shape)
+            x_shape = x.shape
+            x = x.reshape(-1, x_shape[-1])
+
+            ce = ConstraintsExecutor(
+                c,
+                backend=NumpyBackend(),
+                feature_names=self.objective_calculator.constraints.feature_names,
+            )
+            distance = ce.execute(x)
+            distance = distance.reshape(x_shape[: x_dim - 1])
+            return distance
+
+        def constraints_percentage(c, x, measure):
+            x_dim = len(x.shape)
+            distance = constraints_distance(c, x)
+
+            constraint_ok = (
+                distance
+                <= self.objective_calculator.thresholds[
+                    "constraints"
+                ]
+            )
+
+            if x_dim == 2:
+                constraint_ok = constraint_ok[:, np.newaxis, :]
+
+            percentage = constraint_ok
+            self.distance_ok.append(np.mean(measure.distance))
+
+            percentage = np.mean(percentage, axis=1)
+            percentage = np.mean(percentage, axis=0)
+
+            return percentage
 
         for attack_i, attack in enumerate([NoAttack()] + self.attacks):
 
@@ -110,8 +152,30 @@ class ConstrainedMultiAttack(MultiAttack):
 
             multi_atk_records.append(len(fails))
 
+            self.robust_accuracies.append(
+                1-(len(fails)/batch_size)
+            )
+            
+            measure = self.objective_calculator.get_objectives_respected(
+                numpy_clean, labels[fails].cpu(), numpy_adv
+            )
+            self.constraints_rate.append(
+                [
+                    constraints_percentage(c, numpy_adv, measure)
+                    for c in self.objective_calculator.constraints.relation_constraints
+                ]
+            )
+            
+            self.mdc.append(
+                self.objective_calculator.get_success_rate(
+                    numpy_clean, labels[fails].cpu(), numpy_adv
+                )
+            )
+            
+
             if len(fails) == 0:
                 break
+            
 
         if self.verbose:
             print(self._return_sr_record(multi_atk_records))
@@ -682,6 +746,7 @@ class ConstrainedAutoAttack3(Attack):
         n_classes=10,
         seed=None,
         verbose=False,
+        steps=10,
     ):
         super().__init__("AutoAttack", model)
         self.norm = norm
@@ -698,6 +763,7 @@ class ConstrainedAutoAttack3(Attack):
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
         self.n_jobs = n_jobs
+        self.steps = steps
 
         if self.constraints_eval.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -730,6 +796,7 @@ class ConstrainedAutoAttack3(Attack):
                         verbose=verbose,
                         fix_equality_constraints_end=fix_equality_constraints_end,
                         fix_equality_constraints_iter=fix_equality_constraints_iter,
+                        steps=self.steps,
                     ),
                     CAPGD(
                         constraints,
@@ -745,6 +812,7 @@ class ConstrainedAutoAttack3(Attack):
                         fix_equality_constraints_end=fix_equality_constraints_end,
                         fix_equality_constraints_iter=fix_equality_constraints_iter,
                         eps_margin=eps_margin,
+                        steps=self.steps,
                     ),
                     Moeva2(
                         model_objective,

@@ -220,7 +220,7 @@ class Moeva2:
 
         if self.ref_points is None:
             self.ref_points = get_reference_directions(
-                "energy", NB_OBJECTIVES, self.n_pop, seed=1
+                "energy", NB_OBJECTIVES, self.n_pop, seed=self.seed
             )
 
         batches_i = cut_in_batch(
