@@ -155,7 +155,7 @@ cython_debug/
 #.idea/
 .run/
 data/
-
+fig/
 docs/
 tmp/
 ��
