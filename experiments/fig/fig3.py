@@ -1,29 +1,30 @@
 import json
 import os
-from pathlib import Path
 import re
+from pathlib import Path
+
+import comet_ml
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import comet_ml
+import seaborn as sns
+from joblib import Parallel, delayed
 from mlc.logging.comet_config import (
     COMET_APIKEY,
     COMET_PROJECT,
     COMET_WORKSPACE,
 )
-from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from constrained_attacks.graphics import (
-    barplot,
+    DPI,
     FONT_SCALE,
     _color_palette,
-    _setup_legend,
     _get_filename,
-    DPI,
+    _setup_legend,
+    barplot,
     lineplot,
 )
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 A1_PATH = "A1_all_20230905_2.csv"
 A2_PATH = "A2_all_20230905_2.csv"
@@ -31,32 +32,12 @@ A2_PATH = "A2_all_20230905_2.csv"
 model_names = {
     "vime": "VIME",
     "deepfm": "DeepFM",
-    "torchrln": "RLN",
+    "torchrln": "TorchRLN",
     "tabtransformer": "TabTransformer",
 }
 other_names = {
     "model_name": "Model",
 }
-
-dataset_names = {
-    "url": "URL",
-    "lcld_v2_iid": "LCLD",
-    "ctu_13_neris": "CTU",
-}
-
-
-GROUP_BY = [
-    "dataset_name",
-    "attack_name",
-    "model_name_target",
-    "Model Source",
-    "Model Target",
-    "model_name",
-    "scenario_name",
-    "n_gen",
-    "n_offsprings",
-    "constraints_access",
-]
 
 
 def barplot(
@@ -140,9 +121,7 @@ def barplot(
 
 def sort_attack_name(attack: str) -> int:
     # print(f"attack {attack}")
-    for i, e in enumerate(
-        ["Standard", "CPGD", "CAPGD", "MOEVA", "CAA", "CAA2", "CAA3"]
-    ):
+    for i, e in enumerate(["CPGD", "CAPGD", "MOEVA", "CAA", "CAA2", "CAA3"]):
         # print(e)
         if e == attack:
             # print(i)
@@ -229,7 +208,7 @@ def get_xp_data(xp, scenario_name):
     }
 
 
-def get_data(scenarios, scenario_names, path="xp_time.json"):
+def get_data(scenarios, scenario_names, path="xp.json"):
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
@@ -498,39 +477,6 @@ def process_scenario(df, scenario_name, only_attack="CAA"):
     return df
 
 
-def select_scenario(df, scenario_names):
-    return ~(df["scenario_name"].isin(scenario_names))
-
-
-def filter_unlikely_scenario(df):
-
-    # For B1 B2 only 100x100
-    df = df[
-        select_scenario(df, ["B1", "B2"])
-        | (df["n_gen"] == 100) & (df["n_offsprings"] == 100)
-    ]
-
-    # For D1 D2 E1 E2 only Subset and Distribution as source
-    df = df[
-        select_scenario(df, ["D1", "D2", "E1", "E2"])
-        | df["Model Source"].isin(["Subset", "Distribution"])
-    ]
-
-    # For D1 D2 E1 E2 only not Subset and Distribution as target
-    df = df[
-        select_scenario(df, ["D1", "D2", "E1", "E2"])
-        | ~df["Model Target"].isin(["Subset", "Distribution"])
-    ]
-
-    # For C1 C2 D1 D2 E1 E2 only different models
-    df = df[
-        select_scenario(df, ["C1", "C2", "D1", "D2", "E1", "E2"])
-        | (df["model_name"] != df["model_name_target"])
-    ]
-
-    return df
-
-
 def process_scenario2(df, scenario_name, only_attack="CAA"):
     df = df.copy()
     if only_attack is not None:
@@ -656,21 +602,31 @@ def get_all_data():
     scenario_names = [
         "A1",
         "A2",
+        # "A1_time",
+        # "A2_time",
+        "B1",
+        "B2",
+        "C1",
+        "C2",
+        "D1",
+        "D2",
+        "E1",
+        "E2",
     ]
     out = get_data(
         [
-            "scenario-ab1-timev1",
-            "scenario-ab2-time-v1",
+            "scenario-a1v18",
+            "scenario-a2v18",
             # "scenario-a1-time",
             # "scenario-a2-time",
-            # "scenario-b1v11",
-            # "scenario-b2v11",
-            # "scenario-c1v11",
-            # "scenario-c2v11",
-            # "scenario-d1v11",
-            # "scenario-dv11",
-            # "scenario-e1v11",
-            # "scenario-e2v11",
+            "scenario-b1v11",
+            "scenario-b2v11",
+            "scenario-c1v11",
+            "scenario-c2v11",
+            "scenario-d1v11",
+            "scenario-dv11",
+            "scenario-e1v11",
+            "scenario-e2v11",
         ],
         scenario_names,
     )
@@ -689,7 +645,7 @@ def preprocess(df):
     df = df[df["attack_name"] != "CAA"]
     df = df[df["attack_name"] != "CAA2"]
     df["attack_name"] = df["attack_name"].map(
-        lambda x: "caa" if x == "caa3" else x
+        lambda x: "CAA" if x == "CAA3" else x
     )
 
     # Retrieve time
@@ -743,633 +699,56 @@ def preprocess(df):
     df = df[df["model_name"] != "deepfm"]
     df = df[df["model_name_target"] != "deepfm"]
 
-    return df
-
-
-def plot_ab_acc(df, name):
-    df = df.copy()
-
-    # Filter
-
-    # Only A and B
-    df = df[df["scenario_name"].isin(["A1", "A2", "B1", "B2"])]
-
-    # Only 100x100 if in B
-    df = df[
-        (~(df["scenario_name"].isin(["B1", "B2"])))
-        | (df["n_gen"] == 100) & (df["n_offsprings"] == 100)
-    ]
-
-    df_augment = df.copy()
-    df_augment["attack_name"] = "Standard"
-    df_augment["robust_acc"] = df_augment["clean_acc"]
-
-    df = pd.concat([df_augment, df])
-
-    df = df.groupby(GROUP_BY)["robust_acc"].mean().reset_index()
-
-    # Sort
-    df["attack_name_sort"] = df["attack_name"].apply(sort_attack_name)
-    df = df.sort_values(by=["attack_name_sort", "scenario_name"])
-
-    # Beautify
-    df["Scenario"] = df["scenario_name"].map(lambda x: f"A/B{x[1]}")
-
-    lineplot(
-        df,
-        name,
-        x="attack_name",
-        y="robust_acc",
-        hue="Scenario",
-        style="Model Source",
-        x_label="Attack",
-        y_label="Accuracy",
-    )
-
-
-def plot_ab_time(df, name):
-    df = df.copy()
-
-    # Filter
-
-    # Only A and B
-    df = df[df["scenario_name"].isin(["A1", "A2", "B1", "B2"])]
-
-    # Only 100x100 if in B
-    df = df[
-        (~(df["scenario_name"].isin(["B1", "B2"])))
-        | (df["n_gen"] == 100) & (df["n_offsprings"] == 100)
-    ]
-
-    df = df.groupby(GROUP_BY)["attack_duration"].mean().reset_index()
-
-    # Sort
-    df["attack_name_sort"] = df["attack_name"].apply(sort_attack_name)
-    df = df.sort_values(by=["attack_name_sort", "scenario_name"])
-
-    # Beautify
-    df["Scenario"] = df["scenario_name"].map(lambda x: f"A/B{x[1]}")
-
-    lineplot(
-        df,
-        name,
-        x="attack_name",
-        y="attack_duration",
-        hue="Scenario",
-        style="Model Source",
-        x_label="Attack",
-        y_label="Time (s)",
-    )
-
-
-key_to_sort = {
-    "Dataset": False,
-    "Training": False,
-    "Model": True,
-    "Scenario": True,
-    "Attack": True,
-}
-
-
-custom_sort = {
-    "Attack": sort_attack_name,
-}
-
-
-def table_ab(df, name, metric):
-    df = df.copy()
-
-    # Filter
-
-    # Only A and B
-    df = df[df["scenario_name"].isin(["A1", "A2", "B1", "B2"])]
-
-    # Only 100x100 if in B
-    df = df[
-        (~(df["scenario_name"].isin(["B1", "B2"])))
-        | (df["n_gen"] == 100) & (df["n_offsprings"] == 100)
-    ]
-
-    df["Scenario"] = df["scenario_name"].map(lambda x: f"A/B{x[1]}")
-
-    df = (
-        df.groupby(GROUP_BY + ["Scenario"])[metric]
-        .agg(["mean", "std", "sem"])
-        .reset_index()
-    )
-
-    df[metric] = df["mean"]
-
-    df["mean_std"] = (
-        "$"
-        + df["mean"].map("{:.3f}".format)
-        + "$"
-        + "\\tiny{$\\pm "
-        + (1.96 * df["sem"]).map("{:.3f}".format)
-        + "$}"
-    )
-
-    df["Model"] = df["model_name_target"].map(model_names)
-    df["Dataset"] = df["dataset_name"].map(dataset_names)
-    df["Training"] = df["Model Target"]
-    df["Attack"] = df["attack_name"]
-
-    columns = ["Attack"]
-    index = ["Dataset", "Training", "Scenario", "Model"]
-    pivot = df.pivot(
-        index=index,
-        columns=columns,
-        values=["mean_std"],
-    )
-
-    def order_series(list_x):
-        ignore = [c for c in index + columns if c not in custom_sort]
-        ignore_list = [df[e].unique() for e in ignore]
-
-        for e in ignore_list:
-            if list_x[0] in e:
-                return list_x
-
-        return list_x.map(sort_attack_name)
-
-    pivot = pivot.sort_index(
-        axis=0,
-        ascending=[key_to_sort[e] for e in index],
-        key=order_series,
-    )
-
-    pivot = pivot.sort_index(
-        axis=1,
-        ascending=[True] + [key_to_sort[e] for e in columns],
-        key=order_series,
-    )
-    pivot.to_csv(_get_filename(f"{name}") + ".csv")
-    pivot.to_latex(
-        _get_filename(f"{name}") + ".tex",
-        float_format="%.3f",
-        column_format="l" * len(index) + "|" + "l" * len(pivot.columns),
-        escape=False,
-        multicolumn_format="c",
-        multicolumn=True,
-        multirow=True,
-        caption="TABLE",
-    )
-
-
-def plot_acde(df, name, intermediate_agg=False):
-    df = df.copy()
-
-    # Filter
-
-    df = df[
-        df["scenario_name"].isin(
-            ["A1", "A2", "C1", "C2", "D1", "D2", "E1", "E2"]
-        )
-    ]
-
-    # Only 100x100 if in B,
-    # only Subset and Distribution if in D or E,
-    # only different models if in C D E
-    df = filter_unlikely_scenario(df)
-
-    # Only CAA attack
-    df = df[df["attack_name"] == "CAA"]
-
-    # Only non robust models if in C
-
-    df = df[
-        select_scenario(df, ["C1", "C2"]) | (df["Model Source"] != "Robust")
-    ]
-
-    # Nicer names
-    df["Model"] = df["model_name_target"].map(model_names)
-    df["Scenario"] = df["scenario_name"]
-
-    df_all = df
-
-    for target in df_all["Model Target"].unique():
-
-        df_t = df_all[df_all["Model Target"] == target]
-        # For the same axis ..
-        df_min = df_t["robust_acc"].min()
-        df_max = df_t["robust_acc"].max()
-        df_delta = df_max - df_min
-
-        for scenario_constraints in ["1", "2"]:
-            df = df_t[
-                df_t["scenario_name"].str.contains(scenario_constraints)
-            ].copy()
-            name_l = f"{name}_{target}_{scenario_constraints}"
-
-            if intermediate_agg:
-                df = (
-                    df.groupby(GROUP_BY)
-                    .agg(
-                        {
-                            "robust_acc": "mean",
-                            "Model": "first",
-                            "Scenario": "first",
-                        }
-                    )
-                    .reset_index()
-                ).copy()
-
-            # Sort
-            df = df.sort_values(by=["Model", "scenario_name"])
-            lineplot(
-                df,
-                name_l,
-                x="Scenario",
-                y="robust_acc",
-                hue="Model",
-                # style="Model",
-                x_label="Scenario",
-                y_label="Accuracy",
-                y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
-                error_min_max=True,
-            )
-
-
-def plot_b(df, name):
-
-    df = df.copy()
-
-    # Filter
-    df = df[df["scenario_name"].isin(["B1", "B2"])]
-
-    df = df.groupby(GROUP_BY)["robust_acc"].agg(["mean", "std"]).reset_index()
-
-    df["robust_acc"] = df["mean"]
-
-    df["mean_std"] = (
-        df["mean"].map("{:.3f}".format)
-        + "\n std: "
-        + df["std"].map("{:.3f}".format)
-    )
-
-    df["Budget"] = (
-        df["n_gen"].astype(int).astype(str)
-        + "x"
-        + df["n_offsprings"].astype(int).astype(str)
-    )
-
-    df_all = df
-
-    df["Model"] = df["model_name_target"].map(model_names)
-
-    for target in df_all["Model Target"].unique():
-
-        df_t = df_all[df_all["Model Target"] == target]
-
-        for scenario_constraints in ["1", "2"]:
-            df = df_t[
-                df_t["scenario_name"].str.contains(scenario_constraints)
-            ].copy()
-
-            df_pivot = df.pivot(
-                columns="Model",
-                index="Budget",
-                values="robust_acc",
-            )
-            df_annot = df.pivot(
-                columns="Model",
-                index="Budget",
-                values="mean_std",
-            )
-
-            def order_series(x):
-                ab = pd.DataFrame(x.str.split("x", expand=True))
-                return ab[0].astype(int) * ab[1].astype(int)
-
-            df_pivot = df_pivot.sort_values(by=["Budget"], key=order_series)
-            df_annot = df_annot.sort_values(by=["Budget"], key=order_series)
-            sns.heatmap(
-                df_pivot,
-                annot=df_annot,
-                fmt="",
-                cmap="viridis",
-            )
-            plt.savefig(
-                _get_filename(f"{name}_{target}_{scenario_constraints}"),
-                dpi=DPI,
-                bbox_inches="tight",
-            )
-            plt.clf()
-
-
-def table_2_attack(df, name):
-    name = name + "_attack"
-
-    df["rank"] = df.groupby(
-        ["scenario_name", "model_name_target", "Model Target"]
-    )["robust_acc"].rank()
-    df_mean = (
-        df.groupby(["model_name", "Model Target"])["rank"]
-        .agg(["mean", "std"])
-        .reset_index()
-    )
-    pivot_mean = df_mean.set_index(["Model Target", "model_name"]).sort_index()
-
-    df = (
-        df.groupby(["scenario_name", "model_name", "Model Target"])["rank"]
-        .mean()
-        .reset_index()
-    )
-    pivot = df.pivot(
-        columns=[
+    group = df.groupby(
+        [
+            "dataset_name",
+            "attack_name",
+            "model_name_target",
+            "Model Source",
+            "Model Target",
+            "model_name",
             "scenario_name",
-        ],
-        index=["Model Target", "model_name"],
-        values=["rank"],
-    )
-    pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
-    pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
-    return df
-
-
-def table_2_defense(df, name):
-    name = name + "_defense"
-
-    df["rank"] = df.groupby(["scenario_name", "model_name", "Model Target"])[
-        "robust_acc"
-    ].rank()
-
-    df_mean = (
-        df.groupby(["model_name_target", "Model Target"])["rank"]
-        .agg(["mean", "std"])
-        .reset_index()
-    )
-    pivot_mean = df_mean.set_index(
-        ["Model Target", "model_name_target"]
-    ).sort_index()
-
-    df = (
-        df.groupby(["scenario_name", "model_name_target", "Model Target"])[
-            "rank"
+            "n_gen",
+            "n_offsprings",
         ]
-        .mean()
-        .reset_index()
-    )
-    pivot = df.pivot(
-        columns=[
-            "scenario_name",
-        ],
-        index=["Model Target", "model_name_target"],
-        values=["rank"],
-    )
-    pivot.to_csv(_get_filename(f"{name}_scenario") + ".csv")
-    pivot_mean.to_csv(_get_filename(f"{name}_mean") + ".csv")
+    ).size()
+
+    new_df = group.agg(
+        {
+            "robust_acc": ["min", "mean", "max", "std"],
+            "attack_duration": ["min", "mean", "max", "std"],
+            "clean_acc": ["min", "mean", "max", "std"],
+        }
+    ).reset_index()
+
     return df
-
-
-def table_2(df, name):
-    df = df.copy()
-
-    # Filter
-    df = df[
-        df["scenario_name"].isin(
-            [
-                "C1",
-                "D1",
-                "E1",
-            ]
-        )
-    ]
-    df = df[df["attack_name"] == "CAA"]
-
-    df = filter_unlikely_scenario(df)
-
-    # ATTACKER SIDE
-    df = df[df["Model Source"] != "Robust"]
-    df = df.groupby(GROUP_BY)["robust_acc"].mean().reset_index()
-
-    df_attack = table_2_attack(df, name)
-    df_defense = table_2_defense(df, name)
-
-    df_attack["mode"] = "attack"
-    df_defense["mode"] = "defense"
-
-    df_all = pd.concat([df_attack, df_defense])
-    df_all.loc[df_all["model_name"].isnull(), "model_name"] = df_all.loc[
-        df_all["model_name"].isnull(), "model_name_target"
-    ]
-
-    df_all = df_all.pivot(
-        columns=["mode", "scenario_name"],
-        index=["Model Target", "model_name"],
-        values=["rank"],
-    )
-    df_all = df_all.sort_index()
-    df_all = df_all.sort_index(axis=0, ascending=[False, True])
-
-    df_all.to_csv(_get_filename(f"{name}_all") + ".csv")
-
-
-def table_moeva(df, name):
-    df = df.copy()
-
-    df = df[df["scenario_name"].isin(["B1"])]
-    df = (
-        df.groupby(GROUP_BY)["robust_acc"]
-        .agg(["mean", "std", "sem"])
-        .reset_index()
-    )
-
-    df["robust_acc"] = df["mean"]
-
-    df["mean_std"] = (
-        "$"
-        + df["mean"].map("{:.3f}".format)
-        + "$"
-        + "\\small{$\\pm "
-        + (1.96 * df["sem"]).map("{:.3f}".format)
-        + "$}"
-    )
-
-    df["Budget"] = (
-        df["n_gen"].astype(int).astype(str)
-        + "x"
-        + df["n_offsprings"].astype(int).astype(str)
-    )
-
-    def order_series(list_x):
-        if list_x[0] in ["Robust", "Standard"]:
-            return list_x
-        out = []
-        for x in list_x:
-            ab = x.split("x")
-            out.append(int(ab[0]) * int(ab[1]))
-        return pd.Series(out)
-
-    df["Model"] = df["model_name_target"].map(model_names)
-    df["dataset_name"] = df["dataset_name"].map(dataset_names)
-    df = df.pivot(
-        columns=["dataset_name", "Model"],
-        index=["Model Target", "Budget"],
-        values=["mean_std"],
-    )
-    df = df.sort_index(axis=1, ascending=[True, False, True])
-    df = df.sort_index(axis=0, ascending=[False, True], key=order_series)
-
-    df.to_csv(_get_filename(f"{name}") + ".csv")
-
-
-def table_acde(df, name):
-    metric = "robust_acc"
-    df = df.copy()
-
-    # Filter
-
-    df = df[
-        df["scenario_name"].isin(
-            ["A1", "A2", "C1", "C2", "D1", "D2", "E1", "E2"]
-        )
-    ]
-
-    # Only 100x100 if in B,
-    # only Subset and Distribution if in D or E,
-    # only different models if in C D E
-    df = filter_unlikely_scenario(df)
-
-    # Only CAA attack
-    df = df[df["attack_name"] == "CAA"]
-
-    # Only non robust models if in C
-
-    df = df[
-        select_scenario(df, ["C1", "C2"]) | (df["Model Source"] != "Robust")
-    ]
-
-    group_by_local = GROUP_BY.copy()
-    group_by_local.remove("model_name")
-    # group_by_local.remove("Model Source")
-    df = (
-        df.groupby(group_by_local + ["Scenario"])[metric]
-        .agg(["mean", "std", "sem", "min", "max"])
-        .reset_index()
-    )
-
-    df[metric] = df["mean"]
-
-    df["mean_std"] = (
-        "$"
-        + df["mean"].map("{:.3f}".format)
-        + "$"
-        + "\\tiny{$\\pm "
-        + (1.96 * df["sem"]).map("{:.3f}".format)
-        + "$}"
-    )
-    for e in ["min", "max"]:
-        df[e] = df[e].map("{:.3f}".format)
-
-    df["Model"] = df["model_name_target"].map(model_names)
-    df["Dataset"] = df["dataset_name"].map(dataset_names)
-    df["Training"] = df["Model Target"]
-    df["Attack"] = df["attack_name"]
-    
-
-    columns = ["Model"]
-    index = ["Dataset", "Training", "Scenario", ]
-    pivot = df.pivot(
-        index=index,
-        columns=columns,
-        values=["mean_std", "min", "max"],
-    )
-
-    def order_series(list_x):
-        ignore = [c for c in index + columns if c not in custom_sort]
-        ignore_list = [df[e].unique() for e in ignore]
-
-        for e in ignore_list:
-            if list_x[0] in e:
-                return list_x
-
-        return list_x.map(sort_attack_name)
-
-    pivot = pivot.sort_index(
-        axis=0,
-        ascending=[key_to_sort[e] for e in index],
-        key=order_series,
-    )
-    
-    pivot = pivot.swaplevel(0, 1, axis=1)
-
-    pivot = pivot.sort_index(
-        axis=1,
-        ascending= [key_to_sort[e] for e in columns]+[True],
-        key=order_series,
-    )
-    pivot.to_csv(_get_filename(f"{name}") + ".csv")
-    pivot.to_latex(
-        _get_filename(f"{name}") + ".tex",
-        float_format="%.2f",
-        column_format="l" * len(index) + "|" + "l" * len(pivot.columns),
-        escape=False,
-        multicolumn_format="c",
-        multicolumn=True,
-        multirow=True,
-        caption="TABLE",
-    )
-
-    # # Nicer names
-    # df["Model"] = df["model_name_target"].map(model_names)
-    # df["Scenario"] = df["scenario_name"]
-
-    # df_all = df
-
-    # for target in df_all["Model Target"].unique():
-
-    #     df_t = df_all[df_all["Model Target"] == target]
-    #     # For the same axis ..
-    #     df_min = df_t["robust_acc"].min()
-    #     df_max = df_t["robust_acc"].max()
-    #     df_delta = df_max - df_min
-
-    #     for scenario_constraints in ["1", "2"]:
-    #         df = df_t[
-    #             df_t["scenario_name"].str.contains(scenario_constraints)
-    #         ].copy()
-    #         name_l = f"{name}_{target}_{scenario_constraints}"
-
-    #         if intermediate_agg:
-    #             df = (
-    #                 df.groupby(GROUP_BY)
-    #                 .agg(
-    #                     {
-    #                         "robust_acc": "mean",
-    #                         "Model": "first",
-    #                         "Scenario": "first",
-    #                     }
-    #                 )
-    #                 .reset_index()
-    #             ).copy()
-
-    #         # Sort
-    #         df = df.sort_values(by=["Model", "scenario_name"])
-    #         lineplot(
-    #             df,
-    #             name_l,
-    #             x="Scenario",
-    #             y="robust_acc",
-    #             hue="Model",
-    #             # style="Model",
-    #             x_label="Scenario",
-    #             y_label="Accuracy",
-    #             y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
-    #             error_min_max=True,
-    #         )
 
 
 def plot_all(df):
-    table_ab(df, "table_ab_time", "attack_duration")
+    return None
     for ds in df["dataset_name"].unique():
         for model in df["model_name"].unique():
             df_l = df[
                 (df["dataset_name"] == ds) & (df["model_name_target"] == model)
             ]
-            plot_ab_time(df_l, f"{ds}/ab_time_{model}")
-            plot_ab_acc(df_l, f"{ds}/ab_acc_{model}")
+            a_1_plot(df_l, f"{ds}/a1_a2_{model}")
+            ab_1_plot(df_l, f"{ds}/ab_{model}")
+            ab_1_plot_time(df_l, f"{ds}/ab_time_{model}")
+            ac_plot(df_l, f"{ds}/ac_{model}")
 
+        df_l = df[(df["dataset_name"] == ds)]
+        b_plot(df_l, f"{ds}/b1")
+        acde_plot(df_l, f"{ds}/acde")
+        for e in ["A", "B", "C", "D", "E"]:
+            attack_plot(df_l, e, f"{ds}/attack_{e}")
+        for contraints in df["constraints_access"].unique():
+            df_l = df[
+                (df["dataset_name"] == ds)
+                & (df["constraints_access"] == contraints)
+            ]
+            threat_model_plot(
+                df_l, f"{ds}/threat_model_{1 if contraints else 2}"
+            )
 
 
 def new_run() -> None:

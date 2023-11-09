@@ -130,7 +130,7 @@ print(" NEW WAY -----")
 
 for source, target, value, color in zip(sources, targets, values, colors):
     print(f"{source} [{value:.3f}] {target} {color}")
-    
+
 
 print(" OLD WAY -----")
 for i in range(len(steps)):

@@ -22,12 +22,9 @@ do
           do
             for MAX_EPS in 0.25 0.5 1
             do
-              sbatch ./jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
+              sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
             done
           done
         done
     done
 done
-
-
-

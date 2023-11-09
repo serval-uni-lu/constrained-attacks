@@ -156,7 +156,6 @@ cython_debug/
 .run/
 data/
 .cometml-runs/data/
-fig/
 docs/
 tmp/
 ��

@@ -17,4 +17,3 @@ echo "Hello from the batch queue on node ${SLURM_NODELIST} for neural architectu
 conda activate crobust
 
 eval "$@"
-

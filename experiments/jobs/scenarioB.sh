@@ -18,11 +18,8 @@ do
         do
           for SCENARIO in "--constraints_access --project_name scenario_B1v11" "--no-constraints_access --project_name scenario_B2v11"
           do
-            sbatch ./jobs/launch-cpu.sh "jobs/scenarioB_inner.sh CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --seed=$SEED"
+            sbatch ./experiments/jobs/launch-cpu.sh "jobs/scenarioB_inner.sh CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --seed=$SEED"
           done
         done
     done
 done
-
-
-

@@ -18,7 +18,7 @@ MODELS=("tabtransformer" "torchrln" "vime")
 
 
 for DATASET in lcld_v2_iid url ctu_13_neris
-# for DATASET in url 
+# for DATASET in url
 do
     for MODEL in tabtransformer torchrln vime
     # for MODEL in tabtransformer
@@ -40,9 +40,8 @@ do
                     source_path="${source_path}${separe}../models/mlc/best_models/${MODELS[j]}_${DATASET}_default.model:../models/mlc/best_models/${MODELS[j]}_${DATASET}_dist.model"
                 fi
             done
-            # sbatch ./jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
-            sbatch ./jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python run/scenarioA.py --dataset_name $DATASET --model_name $source --custom_path $source_path --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --model_name_target $model_taget_name --custom_path_target $list_target_path --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
+            # sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
+            sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $source --custom_path $source_path --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --model_name_target $model_taget_name --custom_path_target $list_target_path --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings"
         done
     done
 done
-

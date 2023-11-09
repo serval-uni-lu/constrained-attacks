@@ -19,12 +19,12 @@ for i in range(len(success_rate) - 1):
 
 for e in delta_success:
     print(f"{e:.3f}")
-    
+
 for e in fail_rate:
     print(f"{e:.3f}")
-    
-    
-    
+
+
+
 X_clean [83.0] Fail1 #b7472a
 X_clean [17.0] Success1 #217346
 
@@ -55,7 +55,7 @@ Success1 [17.0] Success4 #217346
 2 [17.0] 8 #217346
 
 
-    
+
 X_clean [83.0] F1 #b7472a
 X_clean [17.0] S1 #217346
 

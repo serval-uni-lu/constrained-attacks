@@ -1,29 +1,30 @@
 import json
 import os
-from pathlib import Path
 import re
+from pathlib import Path
+
+import comet_ml
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import comet_ml
+import seaborn as sns
+from joblib import Parallel, delayed
 from mlc.logging.comet_config import (
     COMET_APIKEY,
     COMET_PROJECT,
     COMET_WORKSPACE,
 )
-from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from constrained_attacks.graphics import (
-    barplot,
+    DPI,
     FONT_SCALE,
     _color_palette,
-    _setup_legend,
     _get_filename,
-    DPI,
+    _setup_legend,
+    barplot,
     lineplot,
 )
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 A1_PATH = "A1_all_20230905_2.csv"
 A2_PATH = "A2_all_20230905_2.csv"
@@ -56,7 +57,7 @@ GROUP_BY = [
     "n_gen",
     "n_offsprings",
     "constraints_access",
-    "steps",
+    "max_eps",
 ]
 
 
@@ -130,20 +131,24 @@ def get_all_data():
     scenario_names = [
         "A1",
         "A2",
+        "B1",
+        "B2",
     ]
     out = get_data(
         [
-            "scenario-a1v18-steps-2",
-            "scenario-a2v18-steps-2",
+            "scenario-a1v18-eps",
+            "scenario-a2v18-eps",
+            "scenario-b1v11-eps",
+            "scenario-b2v11-eps",
         ],
         scenario_names,
-        path="xp_steps.json",
+        path="xp_eps.json",
     )
     df = pd.DataFrame(out)
     return df
 
 
-def table_steps(df, name):
+def table_eps(df, name):
     df = df.copy()
 
     df = df[df["scenario_name"].isin(["A1", "A2", "B1", "B2"])]
@@ -168,7 +173,7 @@ def table_steps(df, name):
     df["Dataset"] = df["dataset_name"].map(dataset_names)
     df["Training"] = df["Model Target"]
     df["Cstr"] = df["constraints_access"].map({True: "Yes", False: "No"})
-    df["Stp"] = df["steps"]
+    df["EPS_RPL"] = df["max_eps"]
     df["Attack"] = df["attack_name"]
 
     df_all = df.copy()
@@ -177,7 +182,7 @@ def table_steps(df, name):
         name_l = f"{name}_{attack}"
         pivot = df.pivot(
             columns=["Dataset", "Model"],
-            index=["Training", "Cstr", "Stp"],
+            index=["Training", "Cstr", "EPS_RPL"],
             values=["mean_std"],
         )
 
@@ -211,12 +216,12 @@ def table_steps(df, name):
             multicolumn_format="c",
             multicolumn=True,
             multirow=True,
-            caption=f"Robust accuracy with different \#step for {attack} attack.",
+            caption=f"Robust accuracy with different maximum perturbation $\\epsilon$ for {attack} attack.",
         )
 
 
 def plot_all(df):
-    table_steps(df, "steps")
+    table_eps(df, "eps")
 
 
 def preprocess(df):
@@ -242,9 +247,6 @@ def preprocess(df):
     # Parse types
     for e in ["mdc", "clean_acc", "n_gen", "n_offsprings", "attack_duration"]:
         df[e] = df[e].astype(float)
-
-    for e in ["steps"]:
-        df[e] = df[e].astype(int)
 
     df["constraints_access"] = df["constraints_access"].map(
         {"true": True, "false": False}

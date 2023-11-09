@@ -1,15 +1,15 @@
+import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 from constrained_attacks.graphics import (
-    barplot,
+    DPI,
     FONT_SCALE,
     _color_palette,
-    _setup_legend,
     _get_filename,
-    DPI,
+    _setup_legend,
+    barplot,
 )
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 A1_PATH = "A1_all_20230905_2.csv"
 A2_PATH = "A2_all_20230905_2.csv"
@@ -62,11 +62,23 @@ def barplot(
             x=x, y=y, hue=hue, data=data, palette=palette, **kwargs
         )
         if default_acc is not None:
-            graph.axhline(default_acc, linestyle="solid", color="red", linewidth=2, label="Standard")
+            graph.axhline(
+                default_acc,
+                linestyle="solid",
+                color="red",
+                linewidth=2,
+                label="Standard",
+            )
         if robust_acc is not None:
-            graph.axhline(robust_acc, linestyle="dashed", color="red", linewidth=2, label="Robust")
+            graph.axhline(
+                robust_acc,
+                linestyle="dashed",
+                color="red",
+                linewidth=2,
+                label="Robust",
+            )
         _setup_legend(data, legend_pos, hue)
-    
+
     plt.ylabel(y_label)
     plt.xlabel(x_label)
 

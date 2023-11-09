@@ -8,48 +8,43 @@ import sys
 
 import pandas as pd
 
-
 sys.path.append(".")
 sys.path.append("../ml-commons")
-from constrained_attacks.typing import NDInt
-from mlc.models.model import Model
-
-from comet import XP
-
-import torch
-import numpy as np
 import copy
+import time
 from argparse import ArgumentParser
+from typing import List, Tuple
 
+import numpy as np
+import torch
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
 from mlc.datasets.dataset_factory import load_dataset
 from mlc.metrics.compute import compute_metric
 from mlc.metrics.metric_factory import create_metric
+from mlc.models.model import Model
 from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
+from sklearn.model_selection import train_test_split
 
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from comet import XP
+from constrained_attacks.attacks.cta.caa import (
+    ConstrainedAutoAttack,
+    ConstrainedAutoAttack2,
+    ConstrainedAutoAttack3,
+    ConstrainedMultiAttack,
+)
+from constrained_attacks.attacks.cta.capgd import CAPGD
+from constrained_attacks.attacks.cta.cfab import CFAB
+from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
+from constrained_attacks.attacks.moeva.moeva import Moeva2
+from constrained_attacks.ensemble import Ensemble
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
-from constrained_attacks.attacks.cta.capgd import CAPGD
-from constrained_attacks.attacks.cta.cfab import CFAB
-from constrained_attacks.attacks.cta.caa import (
-    ConstrainedAutoAttack,
-    ConstrainedMultiAttack,
-    ConstrainedAutoAttack2,
-    ConstrainedAutoAttack3,
-)
-from constrained_attacks.attacks.moeva.moeva import Moeva2
-
-from mlc.dataloaders.fast_dataloader import FastTensorDataLoader
-from sklearn.model_selection import train_test_split
-from typing import List, Tuple
-import time
-from constrained_attacks.ensemble import Ensemble
-
+from constrained_attacks.typing import NDInt
 
 
 def run_experiment(
@@ -69,13 +64,14 @@ def run_experiment(
     project_name="scenario_A1_v11",
     constraints_eval=None,
     override_adv=None,
-    seed:int = 0,
+    seed: int = 0,
     steps: int = 10,
     save_adv: int = 0,
-    x_opposite = None
+    x_opposite=None,
 ):
     experiment = XP(
-        {**args, "filter_class": filter_class, "seed": seed, "steps": steps}, project_name=project_name
+        {**args, "filter_class": filter_class, "seed": seed, "steps": steps},
+        project_name=project_name,
     )
 
     save_path = os.path.join(xp_path, experiment.get_name())
@@ -106,15 +102,27 @@ def run_experiment(
             ),
             "caa": (
                 ConstrainedAutoAttack,
-                {"constraints_eval": constraints_eval, "n_jobs": n_jobs, "steps": steps},
+                {
+                    "constraints_eval": constraints_eval,
+                    "n_jobs": n_jobs,
+                    "steps": steps,
+                },
             ),
             "caa2": (
                 ConstrainedAutoAttack2,
-                {"constraints_eval": constraints_eval, "n_jobs": n_jobs, "steps": steps},
+                {
+                    "constraints_eval": constraints_eval,
+                    "n_jobs": n_jobs,
+                    "steps": steps,
+                },
             ),
             "caa3": (
                 ConstrainedAutoAttack3,
-                {"constraints_eval": constraints_eval, "n_jobs": n_jobs, "steps": steps},
+                {
+                    "constraints_eval": constraints_eval,
+                    "n_jobs": n_jobs,
+                    "steps": steps,
+                },
             ),
         }
 
@@ -122,7 +130,12 @@ def run_experiment(
 
     # In scneario A1, the attacker is aware of the constraints or the mutable features
     constraints = copy.deepcopy(constraints)
-    attack_args = {"eps": args.get("max_eps"), "norm": "L2", "seed": seed, **attack_class[1]}
+    attack_args = {
+        "eps": args.get("max_eps"),
+        "norm": "L2",
+        "seed": seed,
+        **attack_class[1],
+    }
 
     model_attack = model.wrapper_model if attack_name != "moeva" else model
 
@@ -179,25 +192,35 @@ def run_experiment(
         experiment.log_metric("attack_duration", endt - startt, step=batch_idx)
         # for e in range(20):
         #     print(attack.attacks[0].__name__)
-        
+
         auto_attack_metrics = attack
         if isinstance(attack.attacks[0], ConstrainedAutoAttack3):
             auto_attack_metrics = attack.attacks[0]._autoattack
             experiment.log_metric(
-                "attack_constraints_rate_steps_inner", auto_attack_metrics.constraints_rate, step=batch_idx
+                "attack_constraints_rate_steps_inner",
+                auto_attack_metrics.constraints_rate,
+                step=batch_idx,
             )
-            
+
         experiment.log_metric(
-            "attack_duration_steps_sum", np.sum(auto_attack_metrics.attack_times), step=batch_idx
+            "attack_duration_steps_sum",
+            np.sum(auto_attack_metrics.attack_times),
+            step=batch_idx,
         )
         experiment.log_metric(
-            "attack_duration_steps", auto_attack_metrics.attack_times, step=batch_idx
+            "attack_duration_steps",
+            auto_attack_metrics.attack_times,
+            step=batch_idx,
         )
         experiment.log_metric(
-            "attack_acc_steps", auto_attack_metrics.robust_accuracies, step=batch_idx
+            "attack_acc_steps",
+            auto_attack_metrics.robust_accuracies,
+            step=batch_idx,
         )
         experiment.log_metric(
-            "attack_constraints_rate_steps", attack.constraints_rate, step=batch_idx
+            "attack_constraints_rate_steps",
+            attack.constraints_rate,
+            step=batch_idx,
         )
         experiment.log_metric(
             "attack_distance_ok_rate", attack.distance_ok, step=batch_idx
@@ -206,7 +229,6 @@ def run_experiment(
         #     experiment.log_metrics(
         #         vars(e), step=(i+1)*10
         #     )
-
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
@@ -313,12 +335,16 @@ def run_experiment(
         experiment.log_metrics(vars(success_rate), step=batch_idx)
 
         if save_examples:
-            x_adv_df = pd.DataFrame(adv_x[:, 0 , :], columns=x.columns)
+            x_adv_df = pd.DataFrame(adv_x[:, 0, :], columns=x.columns)
             path = "./tmp/log_asset.csv"
-            for name, e in [("x_test", x), ("x_opposite", x_opposite), ("x_adv", x_adv_df)]:
+            for name, e in [
+                ("x_test", x),
+                ("x_opposite", x_opposite),
+                ("x_adv", x_adv_df),
+            ]:
                 e.to_csv(path, index=False)
-                experiment.log_asset(path ,name)
-                
+                experiment.log_asset(path, name)
+
             adv_name = "adv_{}.pt".format(batch_idx)
             adv_path = os.path.join(save_path, adv_name)
             torch.save(adv_x.detach().cpu(), adv_path)
@@ -383,7 +409,7 @@ def load_model_and_weights(
     print("###############")
     print(model_name)
     print(custom_path)
-    
+
     splits_model_name = model_name.split(":")
     splits_custom_path = custom_path.split(":")
     if len(splits_model_name) > 1:
@@ -394,7 +420,7 @@ def load_model_and_weights(
             for m, p in zip(splits_model_name, splits_custom_path)
         ]
         return Ensemble(models), custom_path
-    
+
     # Load model
     model_class = load_model(model_name)
     weight_path = (
@@ -448,8 +474,8 @@ def run(
     n_offsprings=100,
     model_name_target=None,
     custom_path_target=None,
-    seed:int=0,
-    steps:int=10,
+    seed: int = 0,
+    steps: int = 10,
 ):
     # Load data
 
@@ -499,21 +525,19 @@ def run(
 
     print("--------- End of verification ---------")
 
-
     if save_examples > 0:
         x_opposite, _ = get_x_attack(
             x_test,
             y_test,
             dataset.get_constraints(),
             model,
-            filter_class=1-filter_class,
+            filter_class=1 - filter_class,
             filter_correct=False,
             subset=subset,
         )
     else:
         x_opposite = None
-        
-    
+
     x_test, y_test = get_x_attack(
         x_test,
         y_test,
@@ -536,8 +560,6 @@ def run(
         list_model_name_target = [model_name]
         list_custom_path_target = [weight_path]
 
-    
-    
     for attack_name in attacks_name:
         last_adv = None
         for target_idx, (
@@ -589,9 +611,6 @@ def run(
                 steps=steps,
                 x_opposite=x_opposite,
             )
-
-                
-            
 
 
 if __name__ == "__main__":
