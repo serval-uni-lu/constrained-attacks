@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy
 import seaborn as sns
 from matplotlib import rc
-from pandas.plotting import register_matplotlib_converters
-import matplotlib
+
+# from pandas.plotting import register_matplotlib_converters
 
 rc("text", usetex=True)
 # font = {
@@ -26,17 +26,17 @@ rc("text", usetex=True)
 #         "font.serif": ["Computer Modern"],
 #     }
 # )
-
-# - global options
-FIGURE_FOLDER = "fig/20231002_0/"
+# matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]# - global options
+# matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
+FIGURE_FOLDER = "data/fig/20231013_0/"
 EXTENSION = ".pdf"
-FONT_SCALE = 1.1
+FONT_SCALE = 1.3
 DPI = 300
 PALETTE = "colorblind"
 OUTSIDE_LEGEND = (1.05, 0.5)
 ABOVE_LEGEND = (0, 1.02, 1, 0.2)
 FONT_WEIGHT = "bold"
-
 
 
 def lineplot(
