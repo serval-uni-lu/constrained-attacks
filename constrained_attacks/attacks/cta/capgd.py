@@ -1,8 +1,15 @@
 import time
+from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.models.model import Model
+from mlc.transformers.tab_scaler import TabScaler
 from torchattacks.attack import Attack
 
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
@@ -13,11 +20,6 @@ from constrained_attacks.utils import (
     fix_immutable,
     fix_types,
 )
-from mlc.constraints.constraints import Constraints
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-from mlc.transformers.tab_scaler import TabScaler
 
 
 class CAPGD(Attack):
@@ -54,24 +56,24 @@ class CAPGD(Attack):
     """
 
     def __init__(
-            self,
-            constraints: Constraints,
-            scaler: TabScaler,
-            model,
-            model_objective,
-            norm="Linf",
-            eps=8 / 255,
-            steps=10,
-            n_restarts=1,
-            seed=0,
-            loss="ce",
-            eot_iter=1,
-            rho=0.75,
-            fix_equality_constraints_end: bool = True,
-            fix_equality_constraints_iter: bool = True,
-            eps_margin=0.01,
-            verbose=False,
-    ):
+        self,
+        constraints: Constraints,
+        scaler: TabScaler,
+        model: Model,
+        model_objective: Model,
+        norm: str = "Linf",
+        eps: float = 8 / 255,
+        steps: int = 10,
+        n_restarts: int = 1,
+        seed: int = 0,
+        loss: str = "ce",
+        eot_iter: int = 1,
+        rho: float = 0.75,
+        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_iter: bool = True,
+        eps_margin: float = 0.01,
+        verbose: bool = False,
+    ) -> None:
         super().__init__("APGD", model)
         self.constraints = constraints
         self.scaler = scaler
@@ -88,6 +90,8 @@ class CAPGD(Attack):
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
 
+        self.objective_calculator: Optional[ObjectiveCalculator] = None
+        self.constraints_executor: Optional[ConstraintsExecutor] = None
         if self.constraints.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
                 model_objective,
@@ -101,9 +105,6 @@ class CAPGD(Attack):
                 PytorchBackend(),
                 feature_names=self.constraints.feature_names,
             )
-        else:
-            self.objective_calculator = None
-            self.constraints_executor = None
 
         self.mutable_mask = scaler.transform_mask(
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
@@ -150,9 +151,9 @@ class CAPGD(Attack):
         ind = (ind_sorted[:, -1] == y).float()
 
         return -(
-                x[np.arange(x.shape[0]), y]
-                - x_sorted[:, -2] * ind
-                - x_sorted[:, -1] * (1.0 - ind)
+            x[np.arange(x.shape[0]), y]
+            - x_sorted[:, -2] * ind
+            - x_sorted[:, -1] * (1.0 - ind)
         ) / (x_sorted[:, -1] - x_sorted[:, -3] + 1e-12)
 
     def attack_single_run(self, x_in, y_in):
@@ -176,45 +177,57 @@ class CAPGD(Attack):
         if self.norm == "Linf":
             t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
             x_adv = x.detach() + self.mutable_mask.to(self.device) * (
-                    self.eps
-                    * torch.ones(
-                [
-                    x.shape[0],
-                    1,
-                ]
-            )
-                    .to(self.device)
-                    .detach()
-                    * t
-                    / (
-                        t.reshape([t.shape[0], -1])
-                            .abs()
-                            .max(dim=1, keepdim=True)[0]
-                            .reshape(
-                            [
-                                -1,
-                                1,
-                            ]
-                        )
+                self.eps
+                * torch.ones(
+                    [
+                        x.shape[0],
+                        1,
+                    ]
+                )
+                .to(self.device)
+                .detach()
+                * t
+                / (
+                    t.reshape([t.shape[0], -1])
+                    .abs()
+                    .max(dim=1, keepdim=True)[0]
+                    .reshape(
+                        [
+                            -1,
+                            1,
+                        ]
                     )
+                )
             )
         elif self.norm == "L2":
             t = torch.randn(x.shape).to(self.device).detach()
-            if self.mutable_mask.shape[0] <x.shape[1]:
-                self.mutable_mask = torch.cat((self.mutable_mask, torch.ones(1,).to(self.mutable_mask.device)))
+            if self.mutable_mask.shape[0] < x.shape[1]:
+                self.mutable_mask = torch.cat(
+                    (
+                        self.mutable_mask,
+                        torch.ones(
+                            1,
+                        ).to(self.mutable_mask.device),
+                    )
+                )
 
             x_adv = x.detach() + self.mutable_mask * (
-                    self.eps
-                    * torch.ones(
-                [
-                    x.shape[0],
-                    1,
-                ]
-            )
-                    .to(self.device)
-                    .detach()
-                    * t
-                    / ((t ** 2).sum(dim=list(range(1,len(x.shape))), keepdim=True).sqrt() + 1e-12)
+                self.eps
+                * torch.ones(
+                    [
+                        x.shape[0],
+                        1,
+                    ]
+                )
+                .to(self.device)
+                .detach()
+                * t
+                / (
+                    (t**2)
+                    .sum(dim=list(range(1, len(x.shape))), keepdim=True)
+                    .sqrt()
+                    + 1e-12
+                )
             )
         x_adv = x_adv.clamp(0.0, 1.0)
         x_best = x_adv.clone()
@@ -240,10 +253,10 @@ class CAPGD(Attack):
                 loss_indiv = criterion_indiv(logits, y)
                 if self.constraints.relation_constraints is not None:
                     loss_indiv = (
-                            loss_indiv
-                            - self.constraints_executor.execute(
-                        self.scaler.inverse_transform(x_adv)
-                    )
+                        loss_indiv
+                        - self.constraints_executor.execute(
+                            self.scaler.inverse_transform(x_adv)
+                        )
                     )
 
                 loss = loss_indiv.sum()
@@ -260,24 +273,24 @@ class CAPGD(Attack):
         loss_best = loss_indiv.detach().clone()
 
         step_size = (
-                self.eps
-                * torch.ones(
-            [
-                x.shape[0],
-                1,
-            ]
-        )
-                .to(self.device)
-                .detach()
-                * torch.Tensor([2.0])
-                .to(self.device)
-                .detach()
-                .reshape(
-            [
-                1,
-                1,
-            ]
-        )
+            self.eps
+            * torch.ones(
+                [
+                    x.shape[0],
+                    1,
+                ]
+            )
+            .to(self.device)
+            .detach()
+            * torch.Tensor([2.0])
+            .to(self.device)
+            .detach()
+            .reshape(
+                [
+                    1,
+                    1,
+                ]
+            )
         )
         x_adv_old = x_adv.clone()
         counter = 0
@@ -302,7 +315,7 @@ class CAPGD(Attack):
 
                 if self.norm == "Linf":
                     x_adv_1 = x_adv + self.mutable_mask.to(x_adv.device) * (
-                            step_size * torch.sign(grad)
+                        step_size * torch.sign(grad)
                     )
                     x_adv_1 = torch.clamp(
                         torch.min(
@@ -327,49 +340,63 @@ class CAPGD(Attack):
 
                 elif self.norm == "L2":
                     x_adv_1 = x_adv + self.mutable_mask * (
-                            step_size
-                            * grad
-                            / (
-                                    (grad ** 2 * self.mutable_mask)
-                                    .sum(dim=list(range(1,len(x.shape))), keepdim=True)
-                                    .sqrt()
-                                    + 1e-12
+                        step_size
+                        * grad
+                        / (
+                            (grad**2 * self.mutable_mask)
+                            .sum(
+                                dim=list(range(1, len(x.shape))), keepdim=True
                             )
+                            .sqrt()
+                            + 1e-12
+                        )
                     )
                     x_adv_1 = torch.clamp(
                         x
                         + (x_adv_1 - x)
                         / (
-                                ((x_adv_1 - x) ** 2)
-                                .sum(dim=list(range(1,len(x.shape))), keepdim=True)
-                                .sqrt()
-                                + 1e-12
+                            ((x_adv_1 - x) ** 2)
+                            .sum(
+                                dim=list(range(1, len(x.shape))), keepdim=True
+                            )
+                            .sqrt()
+                            + 1e-12
                         )
                         * torch.min(
                             self.eps
                             * torch.ones(x.shape).to(self.device).detach(),
                             ((x_adv_1 - x) ** 2)
-                            .sum(dim=list(range(1,len(x.shape))), keepdim=True)
+                            .sum(
+                                dim=list(range(1, len(x.shape))), keepdim=True
+                            )
                             .sqrt(),
                         ),
                         0.0,
                         1.0,
                     )
-                    x_adv_1 = x_adv + self.mutable_mask * (x_adv_1 - x_adv) * a +self.mutable_mask * grad2 * (1 - a)
+                    x_adv_1 = (
+                        x_adv
+                        + self.mutable_mask * (x_adv_1 - x_adv) * a
+                        + self.mutable_mask * grad2 * (1 - a)
+                    )
                     x_adv_1 = torch.clamp(
                         x
                         + (x_adv_1 - x)
                         / (
-                                ((x_adv_1 - x) ** 2)
-                                .sum(dim=list(range(1,len(x.shape))), keepdim=True)
-                                .sqrt()
-                                + 1e-12
+                            ((x_adv_1 - x) ** 2)
+                            .sum(
+                                dim=list(range(1, len(x.shape))), keepdim=True
+                            )
+                            .sqrt()
+                            + 1e-12
                         )
                         * torch.min(
                             self.eps
                             * torch.ones(x.shape).to(self.device).detach(),
                             ((x_adv_1 - x) ** 2)
-                            .sum(dim=list(range(1,len(x.shape))), keepdim=True)
+                            .sum(
+                                dim=list(range(1, len(x.shape))), keepdim=True
+                            )
                             .sqrt()
                             + 1e-12,
                         ),
@@ -390,10 +417,10 @@ class CAPGD(Attack):
                     loss_indiv = criterion_indiv(logits, y)
                     if self.constraints.relation_constraints is not None:
                         loss_indiv = (
-                                loss_indiv
-                                - self.constraints_executor.execute(
-                            self.scaler.inverse_transform(x_adv)
-                        )
+                            loss_indiv
+                            - self.constraints_executor.execute(
+                                self.scaler.inverse_transform(x_adv)
+                            )
                         )
                     loss = loss_indiv.sum()
 
@@ -407,7 +434,7 @@ class CAPGD(Attack):
             acc = torch.min(acc, pred)
             acc_steps[i + 1] = acc + 0
             x_best_adv[(pred == 0).nonzero().squeeze()] = (
-                    x_adv[(pred == 0).nonzero().squeeze()] + 0.0
+                x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
 
             if self.fix_equality_constraints_iter:
@@ -445,8 +472,8 @@ class CAPGD(Attack):
                         k3=self.thr_decr,
                     )
                     fl_reduce_no_impr = (~reduced_last_check) * (
-                            loss_best_last_check.cpu().numpy()
-                            >= loss_best.cpu().numpy()
+                        loss_best_last_check.cpu().numpy()
+                        >= loss_best.cpu().numpy()
                     )
                     fl_oscillation = ~(~fl_oscillation * ~fl_reduce_no_impr)
                     reduced_last_check = np.copy(fl_oscillation)
@@ -513,12 +540,14 @@ class CAPGD(Attack):
                             x_clean=x_clean.cpu().numpy(),
                             y_clean=y_in.cpu().numpy(),
                             x_adv=x_adv_for_ind.clone()
-                                      .detach()
-                                      .numpy()[:, np.newaxis, :],
+                            .detach()
+                            .numpy()[:, np.newaxis, :],
                         )
-                        ind_to_fool = torch.from_numpy(ind_to_fool).to(
-                            self.device
-                        ).long()
+                        ind_to_fool = (
+                            torch.from_numpy(ind_to_fool)
+                            .to(self.device)
+                            .long()
+                        )
                     if len(ind_to_fool.shape) == 0:
                         ind_to_fool = ind_to_fool.unsqueeze(0)
                     if ind_to_fool.numel() != 0:

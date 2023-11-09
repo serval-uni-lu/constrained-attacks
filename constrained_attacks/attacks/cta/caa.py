@@ -3,6 +3,13 @@ from warnings import warn
 
 import numpy as np
 import torch
+from mlc.constraints.constraints import Constraints
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.numpy_backend import NumpyBackend
+from mlc.constraints.pytorch_backend import PytorchBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.transformers.tab_scaler import TabScaler
+from mlc.utils import to_numpy_number
 from torchattacks.attack import Attack
 from torchattacks.wrappers.multiattack import MultiAttack
 
@@ -13,18 +20,13 @@ from constrained_attacks.attacks.moeva.moeva import Moeva2
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
-from mlc.constraints.constraints import Constraints
-from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
-from mlc.constraints.pytorch_backend import PytorchBackend
-from mlc.constraints.relation_constraint import AndConstraint
-from mlc.transformers.tab_scaler import TabScaler
-from mlc.utils import to_numpy_number
-from mlc.constraints.numpy_backend import NumpyBackend
 
 
 class NoAttack:
-    def __call__(self, images, labels):
-        return images
+    """Utility class to have no attack."""
+
+    def __call__(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        return x
 
 
 class ConstrainedMultiAttack(MultiAttack):
@@ -67,9 +69,8 @@ class ConstrainedMultiAttack(MultiAttack):
         labels = labels.clone().detach().to(self.device)
 
         multi_atk_records = [batch_size]
-        
-        def constraints_distance(c, x):
 
+        def constraints_distance(c, x):
             x_dim = len(x.shape)
             x_shape = x.shape
             x = x.reshape(-1, x_shape[-1])
@@ -88,10 +89,7 @@ class ConstrainedMultiAttack(MultiAttack):
             distance = constraints_distance(c, x)
 
             constraint_ok = (
-                distance
-                <= self.objective_calculator.thresholds[
-                    "constraints"
-                ]
+                distance <= self.objective_calculator.thresholds["constraints"]
             )
 
             if x_dim == 2:
@@ -106,7 +104,6 @@ class ConstrainedMultiAttack(MultiAttack):
             return percentage
 
         for attack_i, attack in enumerate([NoAttack()] + self.attacks):
-
             # Attack the one that failed so far
 
             start_time = time.time()
@@ -142,7 +139,6 @@ class ConstrainedMultiAttack(MultiAttack):
 
             # If we found adversarials
             if len(success_attack_indices) > 0:
-
                 final_images[fails[success_attack_indices]] = filter_adv[
                     success_attack_indices, success_adversarials_indices, :
                 ].squeeze(1)
@@ -152,10 +148,8 @@ class ConstrainedMultiAttack(MultiAttack):
 
             multi_atk_records.append(len(fails))
 
-            self.robust_accuracies.append(
-                1-(len(fails)/batch_size)
-            )
-            
+            self.robust_accuracies.append(1 - (len(fails) / batch_size))
+
             measure = self.objective_calculator.get_objectives_respected(
                 numpy_clean, labels[fails].cpu(), numpy_adv
             )
@@ -165,17 +159,15 @@ class ConstrainedMultiAttack(MultiAttack):
                     for c in self.objective_calculator.constraints.relation_constraints
                 ]
             )
-            
+
             self.mdc.append(
                 self.objective_calculator.get_success_rate(
                     numpy_clean, labels[fails].cpu(), numpy_adv
                 )
             )
-            
 
             if len(fails) == 0:
                 break
-            
 
         if self.verbose:
             print(self._return_sr_record(multi_atk_records))
