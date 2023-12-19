@@ -17,7 +17,6 @@ from mlc.constraints.constraints_fixer import ConstraintsFixer
 
 
 def mutate(x_original: NDNumber, x_mutation: NDNumber) -> None:
-
     if x_original.shape[:-1] != x_mutation.shape[:-1]:
         raise ValueError(
             f"X_original has shape: {x_original.shape}, "
@@ -42,7 +41,6 @@ def cut_in_batch(
     n_desired_batch: int = 1,
     batch_size: Optional[int] = None,
 ) -> List[NDArray[Any]]:
-
     if batch_size is None:
         n_batch = min(n_desired_batch, len(arr))
     else:
@@ -55,9 +53,12 @@ def cut_in_batch(
 def fix_types(
     x_clean: torch.Tensor, x_adv: torch.Tensor, types: pd.Series
 ) -> torch.Tensor:
-
     x_adv = x_adv.clone()
     int_indices = np.where(types == "int")[0]
+
+    if len(int_indices) == 0:
+        return x_adv
+
     x_adv_ndim = x_adv.ndim
 
     if x_clean.ndim == 2:
@@ -85,9 +86,12 @@ def fix_types(
 def fix_immutable(
     x_clean: torch.Tensor, x_adv: torch.Tensor, mutable: pd.Series
 ) -> torch.Tensor:
-
     x_adv = x_adv.clone()
     immutable_indices = np.where(~mutable)[0]
+
+    if len(immutable_indices) == 0:
+        return x_adv
+
     x_adv_ndim = x_adv.ndim
 
     if x_clean.ndim == 2:
