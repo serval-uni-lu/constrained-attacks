@@ -110,7 +110,9 @@ class CAPGD(Attack):
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
         ).to(self.device)
 
-    def forward(self, images, labels):
+    def forward(
+        self, images: torch.Tensor, labels: torch.Tensor
+    ) -> torch.Tensor:
         r"""
         Overridden.
         """
