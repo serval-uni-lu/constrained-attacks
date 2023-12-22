@@ -364,7 +364,6 @@ def get_x_attack(
     filter_correct=True,
     subset=0,
 ) -> Tuple[pd.DataFrame, NDInt]:
-
     if filter_class is not None:
         filter_l = y == filter_class
         x, y = x[filter_l], y[filter_l]
@@ -456,6 +455,49 @@ def parse_target(model_name_target, custom_path_target, dataset_name):
     return list_model_name_target, list_custom_path_target
 
 
+def write_cache(path, x_adv):
+    x_adv = torch.cat(x_adv, dim=0)
+    torch.save(x_adv, path)
+
+
+def load_cache(path, batch_size):
+    x_adv = torch.load(path)
+
+    x_adv_out = []
+
+    n_batch = len(x_adv) // batch_size + 1
+
+    for i in range(n_batch):
+        x_adv_out.append(x_adv[i * batch_size : (i + 1) * batch_size])
+
+    return x_adv_out
+
+
+def get_adv_path(
+    dataset_name: str,
+    model_name: str,
+    model_training: str,
+    attack_name: str,
+    subset: int,
+    eps: float,
+    steps: int,
+    n_gen: int,
+    n_offsprings: int,
+    seed: int,
+) -> str:
+    adv_name = f"{dataset_name}_{model_name}_{model_training}_{attack_name}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}.pt"
+    os.makedirs("./cache", exist_ok=True)
+    adv_path = os.path.join("./cache", adv_name)
+    return adv_path
+
+
+def path_to_training(path):
+    training = ["default", "madry", "subset", "dist"]
+    for t in training:
+        if t in path:
+            return t
+
+
 def run(
     dataset_name: str,
     model_name: str,
@@ -476,6 +518,8 @@ def run(
     custom_path_target=None,
     seed: int = 0,
     steps: int = 10,
+    load_adv: bool = False,
+    save_adv: bool = False,
 ):
     # Load data
 
@@ -562,6 +606,22 @@ def run(
 
     for attack_name in attacks_name:
         last_adv = None
+        if load_adv:
+            last_adv = load_cache(
+                get_adv_path(
+                    dataset_name,
+                    model_name,
+                    path_to_training(weight_path),
+                    attack_name,
+                    subset,
+                    max_eps,
+                    steps,
+                    n_gen,
+                    n_offsprings,
+                    seed,
+                ),
+                batch_size,
+            )
         for target_idx, (
             model_name_target_l,
             custom_path_target_l,
@@ -611,6 +671,23 @@ def run(
                 steps=steps,
                 x_opposite=x_opposite,
             )
+
+            if save_adv:
+                write_cache(
+                    get_adv_path(
+                        dataset_name,
+                        model_name,
+                        path_to_training(weight_path),
+                        attack_name,
+                        subset,
+                        max_eps,
+                        steps,
+                        n_gen,
+                        n_offsprings,
+                        seed,
+                    ),
+                    last_adv,
+                )
 
 
 if __name__ == "__main__":
@@ -662,6 +739,8 @@ if __name__ == "__main__":
     parser.add_argument("--custom_path_target", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--steps", type=int, default=10)
+    parser.add_argument("--save_adv", type=int, default=0)
+    parser.add_argument("--load_adv", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -685,4 +764,6 @@ if __name__ == "__main__":
         custom_path_target=args.custom_path_target,
         seed=args.seed,
         steps=args.steps,
+        load_adv=args.load_adv != 0,
+        save_adv=args.save_adv != 0,
     )
