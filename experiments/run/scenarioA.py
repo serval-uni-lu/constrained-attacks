@@ -478,6 +478,7 @@ def get_adv_path(
     model_name: str,
     model_training: str,
     attack_name: str,
+    constraints: int,
     subset: int,
     eps: float,
     steps: int,
@@ -485,7 +486,7 @@ def get_adv_path(
     n_offsprings: int,
     seed: int,
 ) -> str:
-    adv_name = f"{dataset_name}_{model_name}_{model_training}_{attack_name}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}.pt"
+    adv_name = f"{dataset_name}_{model_name}_{model_training}_{attack_name}_{constraints}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}.pt"
     os.makedirs("./cache", exist_ok=True)
     adv_path = os.path.join("./cache", adv_name)
     return adv_path
@@ -613,6 +614,7 @@ def run(
                     model_name,
                     path_to_training(weight_path),
                     attack_name,
+                    int(constraints_access),
                     subset,
                     max_eps,
                     steps,
@@ -679,6 +681,7 @@ def run(
                         model_name,
                         path_to_training(weight_path),
                         attack_name,
+                        int(constraints_access),
                         subset,
                         max_eps,
                         steps,
