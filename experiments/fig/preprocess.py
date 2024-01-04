@@ -19,7 +19,11 @@ from mlc.logging.comet_config import (
 from tqdm import tqdm
 
 from datetime import datetime
-from .beautify_data import data_order, ordered_model_names, ordered_model_training_names
+from .beautify_data import (
+    data_order,
+    ordered_model_names,
+    ordered_model_training_names,
+)
 
 
 def generate_time_name():
@@ -406,6 +410,15 @@ def augment_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def parse_attack_duration(df: pd.DataFrame) -> pd.DataFrame:
+    filter_attack_duration = ~(df["attack_duration_steps_sum"].isnull())
+    df.loc[filter_attack_duration, "attack_duration"] = df.loc[
+        filter_attack_duration, "attack_duration_steps_sum"
+    ]
+    df["attack_duration"].astype(float)
+    return df
+
+
 def parse_model_arch(df: pd.DataFrame) -> pd.DataFrame:
     df["source_model_arch"] = df["weight_path"].apply(path_to_name)
     df["target_model_arch"] = df["weight_path_target"].apply(path_to_name)
@@ -467,9 +480,9 @@ def add_order(df: pd.DataFrame) -> pd.DataFrame:
         names = list(names.keys())
         mapping = {name: i for i, name in enumerate(names)}
         print(col)
-        df.loc[~df[col].isna(), f"{col}_order"] = df.loc[~df[col].isna(), col].apply(
-            lambda x: mapping[x]
-        )
+        df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
+            ~df[col].isna(), col
+        ].apply(lambda x: mapping[x])
     return df
 
 
@@ -479,6 +492,7 @@ def parse_data(df: pd.DataFrame) -> pd.DataFrame:
     df = parse_is_constrained(df)
     df = parse_n_iter(df)
     df = parse_robust_acc(df)
+    df = parse_attack_duration(df)
     df = col_rename(df)
     print(df["dataset"].unique())
     print(df.shape)
