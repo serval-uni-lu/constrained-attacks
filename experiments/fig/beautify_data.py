@@ -25,6 +25,17 @@ ordered_attack_names = {
 ordered_model_training_names = {
     "default": "Standard",
     "madry": "Robust",
+    "subset": "Subset",
+    "dist": "Distribution",
+}
+
+order_scenario = {
+    "A": "A",
+    "AB": "AB",
+    "B": "B",
+    "C": "C",
+    "D": "D",
+    "E": "E",
 }
 
 
@@ -39,6 +50,7 @@ data_order = {
     "target_model_training": ordered_model_training_names,
     "source_model_training": ordered_model_training_names,
     "attack": ordered_attack_names,
+    "scenario": order_scenario,
 }
 
 column_names = {
@@ -46,10 +58,15 @@ column_names = {
     "target_model_arch": "Model",
     "attack": "Attack",
     "target_model_training": "Training",
+    "source_model_training": "Training",
+    "source_model_arch": "Model",
+    "scenario": "Scenario",
 }
 
 
 def beautify_col_name(col):
     if col in column_names:
         return column_names[col]
+    if col is None:
+        return None
     return col

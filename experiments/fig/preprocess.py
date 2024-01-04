@@ -183,14 +183,39 @@ def filter_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[COL_FILTER]
 
 
+def filter_source_equal_target(df: pd.DataFrame) -> pd.DataFrame:
+    is_scenario_c = df["scenario"].isin(["C", "D", "E"])
+
+    is_target_equal_source = df["target_model_arch"] == df["source_model_arch"]
+
+    df = df[~(is_scenario_c & is_target_equal_source)]
+    return df
+
+
+def filter_values(df: pd.DataFrame) -> pd.DataFrame:
+    df = filter_source_equal_target(df)
+    return df
+
+
+def temp_filter(df: pd.DataFrame) -> pd.DataFrame:
+    df = df[
+        (df["source_model_arch"] != "saint")
+        & (df["target_model_arch"] != "saint")
+    ]
+    return df
+
+
 def run() -> None:
-    path = "data/xp_results/data_2024_01_03_14_18_12.json"
+    path = "data/xp_results/data_2024_01_04_15_52_53.json"
     json_data = load_json_data(path)
     df = parse_json_data(json_data)
     df = augment_data(df)
     df = parse_data(df)
     print(df.shape)
     df = filter_columns(df)
+    df = filter_values(df)
+    df = filter_source_equal_target(df)
+    df = temp_filter(df)
     df = add_order(df)
     df.to_csv("data_tmp.csv", index=False)
     print(df.shape)

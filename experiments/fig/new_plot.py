@@ -37,11 +37,11 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
     df = df[df["is_constrained"] == True]
     if not with_clean_attack:
         df = df[df["attack"] != "no_attack"]
+    df = df[df["source_model_training"].isin(["default", "madry"])]
 
     # Sort
 
     df = df.sort_values(by=[f"{e}_order" for e in index + columns])
-    # return df
 
     # Aggregate
 
@@ -81,12 +81,194 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
     )
 
     # Beautify
+
     pivot.columns.rename(
         [beautify_col_name(e) for e in pivot.columns.names], inplace=True
     )
     pivot.index.rename(
         [beautify_col_name(e) for e in pivot.index.names], inplace=True
     )
+
+    return pivot
+
+
+def table_rank_source(
+    df: pd.DataFrame, metric, with_clean_attack=True
+) -> None:
+    columns = ["scenario"]
+    index = ["target_model_training", "source_model_arch"]
+
+    # Filter
+    df = df[df["scenario"].isin(["C", "D", "E"])]
+    df = df[df["is_constrained"] == True]
+    if not with_clean_attack:
+        df = df[df["attack"] != "no_attack"]
+    df = df[
+        (
+            df["source_model_training"].isin(["default"])
+            & (df["scenario"] == "C")
+        )
+        | (
+            df["source_model_training"].isin(["subset"])
+            & (df["scenario"] == "D")
+        )
+        | (
+            df["source_model_training"].isin(["dist"])
+            & (df["scenario"] == "E")
+        )
+    ]
+    df = df[df["target_model_training"].isin(["default", "madry"])]
+    df = df[~(df["target_model_arch"] == df["source_model_arch"])]
+
+    print(df.shape)
+    print(df["scenario"].value_counts())
+
+    # Sort
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    # Aggregate
+
+    df = df.groupby(GROUP_BY, sort=False)[metric].mean().reset_index()
+
+    df["rank"] = df.groupby(
+        ["scenario", "target_model_training", "target_model_arch"], sort=False
+    )["robust_acc"].rank()
+
+    df = (
+        df.groupby(
+            ["scenario", "target_model_training", "source_model_arch"],
+            sort=False,
+        )["rank"]
+        .agg(["mean", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+    df["latex"] = "$" + df["mean"].map("{:.2f}".format) + "$"
+
+    # Pivot
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+    return pivot, df
+
+
+def table_rank_target(
+    df: pd.DataFrame, metric, with_clean_attack=True
+) -> None:
+    columns = ["scenario"]
+    index = ["target_model_training", "target_model_arch"]
+
+    # Filter
+    df = df[df["scenario"] == "C"]
+    df = df[df["is_constrained"] == True]
+    if not with_clean_attack:
+        df = df[df["attack"] != "no_attack"]
+    df = df[
+        (
+            df["source_model_training"].isin(["default"])
+            & (df["scenario"] == "C")
+        )
+        | (
+            df["source_model_training"].isin(["subset"])
+            & (df["scenario"] == "D")
+        )
+        | (
+            df["source_model_training"].isin(["dist"])
+            & (df["scenario"] == "E")
+        )
+    ]
+    df = df[~(df["target_model_arch"] == df["source_model_arch"])]
+    df = df[df["target_model_training"].isin(["default", "madry"])]
+
+    # Sort
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    # Aggregate
+
+    df = df.groupby(GROUP_BY, sort=False)[metric].mean().reset_index()
+
+    df["rank"] = df.groupby(
+        ["scenario", "target_model_training", "source_model_arch"], sort=False
+    )["robust_acc"].rank()
+
+    df = (
+        df.groupby(
+            ["scenario", "target_model_training", "target_model_arch"],
+            sort=False,
+        )["rank"]
+        .agg(["mean", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+    df["latex"] = "$" + df["mean"].map("{:.2f}".format) + "$"
+
+    # Pivot
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+    return pivot, df
+
+
+def table_rank(df: pd.DataFrame) -> pd.DataFrame:
+    df_source = table_rank_source(df.copy(), "robust_acc")[1]
+    df_source["mode"] = "As a source"
+    df_source["model_arch"] = df_source["source_model_arch"]
+
+    df_target = table_rank_target(df.copy(), "robust_acc")[1]
+    df_target["mode"] = "As a target"
+    df_target["model_arch"] = df_target["target_model_arch"]
+
+    columns = ["mode", "scenario"]
+    index = ["target_model_training", "model_arch"]
+
+    df = pd.concat([df_source, df_target], axis=0)
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
     return pivot
 
 
@@ -117,6 +299,11 @@ def run():
         table_AB(df.copy(), "attack_duration", with_clean_attack=False),
         "main_table_ab_attack_duration",
     )
+    save_table(
+        table_rank(df.copy()),
+        "table_rank_both",
+    )
+    table_rank(df.copy())
 
 
 if __name__ == "__main__":

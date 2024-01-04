@@ -50,9 +50,9 @@ def download_data(scenarios: Dict[str, List[str]], path: str):
 
 TO_GET = {
     "AB": ["scenario-ab-url-v3"],
-    "C": [],
-    "D": [],
-    "E": [],
+    "C": ["scenario-c-url-v4"],
+    "D": ["scenario-d-url-v4"],
+    "E": ["scenario-e-url-v4"],
 }
 
 
