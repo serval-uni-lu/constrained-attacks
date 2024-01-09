@@ -29,6 +29,7 @@ def download_data(scenarios: Dict[str, List[str]], path: str):
     out = []
     for scenario_name, project_names in scenarios.items():
         for p in project_names:
+            print(f"------- Project {p}")
             experiments = comet_ml.api.API(COMET_APIKEY).get(
                 COMET_WORKSPACE, p
             )
@@ -49,10 +50,30 @@ def download_data(scenarios: Dict[str, List[str]], path: str):
 
 
 TO_GET = {
-    "AB": ["scenario-ab-url-v3"],
-    "C": ["scenario-c-url-v4"],
-    "D": ["scenario-d-url-v4"],
-    "E": ["scenario-e-url-v4"],
+    "AB": [
+        "scenario-ab-url-v3",
+        "scenario-ab-wids-v3",
+        "scenario-ab-lcld-v2-iid-v3",
+        "scenario-ab-ctu-13-neris-v4",
+    ],
+    "C": [
+        "scenario-c-url-v4",
+        "scenario-c-wids-v4",
+        "scenario-c-lcld-v2-iid-v4",
+        "scenario-c-ctu-13-neris-v4",
+    ],
+    "D": [
+        "scenario-d-url-v4",
+        "scenario-d-wids-v4",
+        "scenario-d-lcld-v2-iid-v4",
+        "scenario-d-ctu-13-neris-v4",
+    ],
+    "E": [
+        "scenario-e-url-v4",
+        "scenario-e-wids-v4",
+        "scenario-e-lcld-v2-iid-v4",
+        "scenario-e-ctu-13-neris-v4",
+    ],
 }
 
 

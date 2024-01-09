@@ -4,10 +4,10 @@ import pandas as pd
 
 N_SEED = 5
 
-DATASETS = ["url"]
+DATASETS = ["ctu_13_neris"]
 
 ATTACKS = {
-    "no_attack": "Clean",
+    # "no_attack": "Clean",
     "pgdl2": "CPGD",
     "apgd": "CAPGD",
     "moeva": "MOEVA",
@@ -18,17 +18,17 @@ MODEL_ARCH = [
     "vime",
     "torchrln",
     "tabtransformer",
-    "saint",
+    # "saint",
     "tabnet",
     "stg",
 ]
-MODEL_TRAINING = ["Standard", "Robust"]
+MODEL_TRAINING = ["madry", "default"]
 CONSTRAINED = [False, True]
 
-
 def run():
+    missing = 0
     df = pd.read_csv("./data_tmp.csv")
-
+    df = df[df["scenario"] == "AB"]
     for (
         dataset,
         attack,
@@ -45,7 +45,8 @@ def run():
             & (df["target_model_training"] == model_training)
             & (df["is_constrained"] == is_constrained)
         ]
-        if df_l.shape[0] != N_SEED:
+        if (df_l.shape[0] != N_SEED) or df_l["robust_acc"].isna().any():
+            
             if attack == "no_attack":
                 print("No attack")
             else:
@@ -57,10 +58,12 @@ def run():
                     is_constrained,
                     df_l.shape[0],
                 )
-                print(df_l.shape)
-                print("As some experiments are run together, please delete all experiments.")
-                print(dataset, model_arch, model_training, is_constrained)
-                print(df_l["seed"].values)
+                # print(df_l.shape)
+                # print("As some experiments are run together, please delete all experiments.")
+                # print(dataset, model_arch, model_training, is_constrained)
+                # print(df_l["seed"].values)
+                missing = missing + 1
+    print(missing)                
 
 
 if __name__ == "__main__":

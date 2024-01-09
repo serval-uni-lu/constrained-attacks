@@ -1,6 +1,6 @@
 ordered_model_names = {
-    "torchrln": "RLN",
     "tabtransformer": "TabTransformer",
+    "torchrln": "RLN",
     "vime": "VIME",
     "stg": "STG",
     "tabnet": "TabNet",
@@ -12,6 +12,7 @@ ordered_dataset_names = {
     "url": "URL",
     "lcld_v2_iid": "LCLD",
     "ctu_13_neris": "CTU",
+    "wids": "WIDS",
 }
 
 ordered_attack_names = {
@@ -27,6 +28,7 @@ ordered_model_training_names = {
     "madry": "Robust",
     "subset": "Subset",
     "dist": "Distribution",
+    "Unknown": "ERROR",
 }
 
 order_scenario = {
@@ -61,6 +63,7 @@ column_names = {
     "source_model_training": "Training",
     "source_model_arch": "Model",
     "scenario": "Scenario",
+    # "robust_acc": "Accuracy",
 }
 
 

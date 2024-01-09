@@ -139,6 +139,7 @@ def add_order(df: pd.DataFrame) -> pd.DataFrame:
         names = list(names.keys())
         mapping = {name: i for i, name in enumerate(names)}
         print(col)
+        print(df[col].unique())
         df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
             ~df[col].isna(), col
         ].apply(lambda x: mapping[x])
@@ -205,8 +206,19 @@ def temp_filter(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def filter_just_train(df: pd.DataFrame) -> pd.DataFrame:
+    is_scenario_ab = df["scenario"] == "AB"
+    is_dist_subset = df["source_model_training"].isin(["dist", "subset"])
+    df = df[~(is_scenario_ab & is_dist_subset)]
+    return df
+
+
+def filter_nan(df: pd.DataFrame) -> pd.DataFrame:
+    return df[~df["robust_acc"].isna()]
+
+
 def run() -> None:
-    path = "data/xp_results/data_2024_01_04_15_52_53.json"
+    path = "data/xp_results/data_2024_01_05_14_09_16.json"
     json_data = load_json_data(path)
     df = parse_json_data(json_data)
     df = augment_data(df)
@@ -215,9 +227,14 @@ def run() -> None:
     df = filter_columns(df)
     df = filter_values(df)
     df = filter_source_equal_target(df)
+    df = filter_just_train(df)
+    df = filter_nan(df)
     df = temp_filter(df)
     df = add_order(df)
     df.to_csv("data_tmp.csv", index=False)
+    df = df.sort_values(by=["scenario", "dataset"])
+    print(df[["scenario", "dataset"]].value_counts(sort=False))
+    print(df[df["dataset"].isna()].shape)
     print(df.shape)
 
 

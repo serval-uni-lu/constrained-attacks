@@ -29,7 +29,7 @@ rc("text", usetex=True)
 # matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]# - global options
 # matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
-FIGURE_FOLDER = "data/fig/20231013_0/"
+FIGURE_FOLDER = "data/fig/20240105_0/"
 EXTENSION = ".pdf"
 FONT_SCALE = 1.3
 DPI = 300
@@ -241,15 +241,26 @@ def barplot(
     x_lim=None,
     y_lim=None,
     rotate_ticks=0,
+    error_min_max=False,
     **kwargs,
 ):
     plt.figure(figsize=fig_size)
     sns.set(style="white", color_codes=True, font_scale=FONT_SCALE)
 
+    def error_f(x):
+        return numpy.min(x), numpy.max(x)
+
     palette = _color_palette(data, hue, overlay_x)
 
     if overlay_x and not hue:
-        sns.barplot(x=x, y=y, hue=hue, data=data, color=palette[0])
+        sns.barplot(
+            x=x,
+            y=y,
+            hue=hue,
+            data=data,
+            color=palette[0],
+            errorbar=error_f if error_min_max else ("ci", 95),
+        )
         sns.barplot(x=overlay_x, y=y, hue=hue, data=data, color=palette[1])
 
         if legend_pos:
@@ -266,7 +277,15 @@ def barplot(
                 prop={"size": FONT_SCALE * 12},
             )
     else:
-        sns.barplot(x=x, y=y, hue=hue, data=data, palette=palette, **kwargs)
+        sns.barplot(
+            x=x,
+            y=y,
+            hue=hue,
+            data=data,
+            palette=palette,
+            errorbar=error_f if error_min_max else ("ci", 95),
+            **kwargs,
+        )
         _setup_legend(data, legend_pos, hue)
 
     plt.ylabel(y_label)
@@ -276,7 +295,7 @@ def barplot(
         plt.xlim(x_lim)
 
     if y_lim is not None and len(y_lim) == 2:
-        plt.xlim(y_lim)
+        plt.ylim(y_lim)
 
     plt.xticks(rotation=rotate_ticks)
 
