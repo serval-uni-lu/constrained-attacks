@@ -1,5 +1,5 @@
-list_n_gen=("100" "50" "200" "200" "100")
-list_n_offsprings=("100" "50" "200" "100" "200")
+list_n_gen=("50" "200" "200" "100")
+list_n_offsprings=("50" "200" "100" "200")
 
 # Ensure both lists have the same length
 if [ ${#list_n_gen[@]} -ne ${#list_n_offsprings[@]} ]; then

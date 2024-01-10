@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -c 32
 #SBATCH -p batch
-#SBATCH --time=0-0:30:00
+#SBATCH --time=0-1:00:00
 #SBATCH --qos=normal
 #SBATCH --mail-type=all
 #SBATCH --mail-user=thibault.simonetto@uni.lu
