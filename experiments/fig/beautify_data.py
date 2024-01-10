@@ -38,12 +38,24 @@ order_scenario = {
     "C": "C",
     "D": "D",
     "E": "E",
+    "A_STEPS": "A_STEPS",
+    "B_STEPS": "B_STEPS",
+    "AB_EPS": "AB_EPS",
 }
 
-
+ordered_is_constrained = {
+    True: "Yes",
+    False: "No",
+}
 column_names = {}
 
 beautify = {"col_data": {}}
+
+ordered_eps = {
+    0.25: "0.25",
+    0.5: "0.5",
+    1.0: "1.0",
+}
 
 data_order = {
     "dataset": ordered_dataset_names,
@@ -53,6 +65,8 @@ data_order = {
     "source_model_training": ordered_model_training_names,
     "attack": ordered_attack_names,
     "scenario": order_scenario,
+    "is_constrained": ordered_is_constrained,
+    "eps": ordered_eps,
 }
 
 column_names = {
@@ -64,6 +78,9 @@ column_names = {
     "source_model_arch": "Model",
     "scenario": "Scenario",
     # "robust_acc": "Accuracy",
+    "model_arch": "Model",
+    "is_constrained": "Constrained",
+    "scenario_constrained": "Scenario",
 }
 
 
