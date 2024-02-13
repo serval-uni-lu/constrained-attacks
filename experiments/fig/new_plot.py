@@ -1,18 +1,12 @@
 from pathlib import Path
-import numpy as np
+from typing import List, Optional, Tuple, Union
+
 import pandas as pd
 
+from constrained_attacks.graphics import barplot
 from experiments.fig.beautify_latex import beautify_latex
-from .beautify_data import data_order, column_names, beautify_col_name
-from constrained_attacks.graphics import (
-    DPI,
-    FONT_SCALE,
-    _color_palette,
-    _get_filename,
-    _setup_legend,
-    barplot,
-    lineplot,
-)
+
+from .beautify_data import beautify_col_name, data_order
 
 DATA_PATH = "./data_tmp.csv"
 OUT_ROOT = "./data/fig/new/"
@@ -44,7 +38,10 @@ def auto_beautify_values(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def to_latex_min_max(
-    df: pd.DataFrame, index, bold_min=False, bold_max=False
+    df: pd.DataFrame,
+    index: List[str],
+    bold_min: bool = False,
+    bold_max: bool = False,
 ) -> None:
     df["is_max"] = df.groupby(index)["mean"].transform(lambda x: x == x.max())
     df["is_min"] = df.groupby(index)["mean"].transform(lambda x: x == x.min())
@@ -60,9 +57,14 @@ def to_latex_min_max(
 
 
 def to_latex(
-    df: pd.DataFrame, bold, in_col="mean", out_col="latex", auto_sem=True, custom_format="{:.3f}"
+    df: pd.DataFrame,
+    bold: pd.Series,
+    in_col: str = "mean",
+    out_col: str = "latex",
+    auto_sem: bool = True,
+    custom_format: str = "{:.3f}",
 ) -> None:
-    if auto_sem == True:
+    if auto_sem:
         no_sem = df["attack"] == "no_attack"
     else:
         df["no_sem"] = True
@@ -95,13 +97,15 @@ def to_latex(
     )
 
 
-def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
+def table_AB(
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> pd.DataFrame:
     columns = ["attack"]
     index = ["dataset", "target_model_training", "target_model_arch"]
 
     # Filter
     df = df[df["scenario"] == "AB"]
-    df = df[df["is_constrained"] == True]
+    df = df[df["is_constrained"]]
     if not with_clean_attack:
         df = df[df["attack"] != "no_attack"]
     df = df[df["source_model_training"].isin(["default", "madry"])]
@@ -125,7 +129,12 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
     df = auto_beautify_values(df)
 
     if metric == "robust_acc":
-        to_latex_min_max(df, index, bold_min=True, bold_max=False,)
+        to_latex_min_max(
+            df,
+            index,
+            bold_min=True,
+            bold_max=False,
+        )
     elif metric == "attack_duration":
         df["bold"] = False
         df.loc[df["attack"].isin(["CAA", "MOEVA"]), "bold"] = (
@@ -171,14 +180,14 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
 
 
 def table_rank_source(
-    df: pd.DataFrame, metric, with_clean_attack=True
-) -> None:
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     columns = ["scenario"]
     index = ["target_model_training", "source_model_arch"]
 
     # Filter
     df = df[df["scenario"].isin(["C", "D", "E"])]
-    df = df[df["is_constrained"] == True]
+    df = df[df["is_constrained"]]
     if not with_clean_attack:
         df = df[df["attack"] != "no_attack"]
     df = df[
@@ -243,14 +252,14 @@ def table_rank_source(
 
 
 def table_rank_target(
-    df: pd.DataFrame, metric, with_clean_attack=True
-) -> None:
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     columns = ["scenario"]
     index = ["target_model_training", "target_model_arch"]
 
     # Filter
     df = df[df["scenario"].isin(["C", "D", "E"])]
-    df = df[df["is_constrained"] == True]
+    df = df[df["is_constrained"]]
     if not with_clean_attack:
         df = df[df["attack"] != "no_attack"]
     df = df[
@@ -348,16 +357,20 @@ def table_rank(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def save_table(
-    df: pd.DataFrame, name: str, caption: str = "CAPTION", other_save=None
+    df: pd.DataFrame,
+    name: str,
+    caption: str = "CAPTION",
+    other_save: Optional[List[str]] = None,
 ) -> None:
     path = f"./{OUT_ROOT}/{name}_table.csv"
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    latex_cols = ["latex"]
+    latex_col = "latex"
+    latex_cols: Union[str, List[str]] = []
     if other_save is not None:
-        latex_cols = latex_cols + other_save
+        latex_cols = [latex_col] + other_save
     else:
-        latex_cols = latex_cols[0]
+        latex_cols = latex_col
 
     df.drop(columns=latex_cols, inplace=False).to_csv(
         f"{path}_table.csv", index=True
@@ -368,14 +381,17 @@ def save_table(
         for i in range(len(df.columns.names) - 1):
             df = df.swaplevel(i, i + 1, axis=1)
 
-        def sort_custom(x):
+        def sort_custom(x: str) -> str:
             local_sort = {
                 "latex": "0",
                 "latex_min": "1",
                 "latex_max": "2",
             }
             return local_sort.get(x, x)
-        df = df.sort_index(axis=1, level=[0,1], key= lambda x: x.map(sort_custom))
+
+        df = df.sort_index(
+            axis=1, level=[0, 1], key=lambda x: x.map(sort_custom)
+        )
         # df = df.sort_index(axis=1, level=0)
 
     style = df.style
@@ -396,64 +412,6 @@ def save_table(
     beautify_latex(path)
 
 
-# def plot_acde_one(df: pd.DataFrame) -> None:
-
-
-#     lineplot(
-#         df[df["scenario_name"].str.contains(c)],
-#         name_l,
-#         x="Scenario",
-#         y="robust_acc",
-#         hue="Model",
-#         # style="Model",
-#         x_label="Scenario",
-#         y_label="Accuracy",
-#         y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
-#     )
-
-
-#     df_all = df_all[df_all["attack_name"] == "CAA"]
-#     df_all = df_all.copy()
-
-#     df_new = []
-#     for scenario_name in ["A", "C", "D", "E"]:
-#         df = df_all[df_all["scenario_name"].str.contains(scenario_name)]
-#         df = process_scenario2(df, scenario_name)
-#         df_new.append(df)
-#     df_new = pd.concat(df_new)
-
-#     df_new = df_new[
-#         (df_new["Model Source"] != "Robust")
-#         | (~df_all["scenario_name"].str.contains("C"))
-#     ]
-
-#     for target in df_new["Model Target"].unique():
-#         df = df_new[df_new["Model Target"] == target]
-
-#         # df_augment = df[df["scenario_name"] == "A1"].copy()
-#         # df_augment["Scenario"] = "Standard"
-#         # df_augment["robust_acc"] = df_augment["clean_acc"]
-#         # df = pd.concat([df_augment, df])
-#         df_min = df["robust_acc"].min()
-#         df_max = df["robust_acc"].max()
-#         df_delta = df_max - df_min
-#         print(f"-------------------- {df_min} {df_max}")
-#         for c in ["1", "2"]:
-#             name_l = f"{name}_{target}_{c}"
-#             df["Model"] = df["model_name_target"].map(model_names)
-#             lineplot(
-#                 df[df["scenario_name"].str.contains(c)],
-#                 name_l,
-#                 x="Scenario",
-#                 y="robust_acc",
-#                 hue="Model",
-#                 # style="Model",
-#                 x_label="Scenario",
-#                 y_label="Accuracy",
-#                 y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
-#             )
-
-
 def map_scenario(scenario: str) -> str:
     if scenario == "AB":
         return "A"
@@ -468,7 +426,7 @@ def plot_acde_one(
     df_min: float,
     df_max: float,
 ) -> None:
-    df_delta = df_max - df_min
+    # df_delta = df_max - df_min
 
     # BEAUTIFY
     df = auto_beautify_values(df)
@@ -564,8 +522,8 @@ def plot_acde(df: pd.DataFrame, dataset: str) -> None:
 
 def table_moeva_budget(
     df: pd.DataFrame,
-    metric,
-) -> None:
+    metric: str,
+) -> pd.DataFrame:
     columns = ["source_model_arch"]
     index = ["dataset", "target_model_training", "budget"]
 
@@ -579,7 +537,7 @@ def table_moeva_budget(
     # Filter
     df = df[df["scenario"].isin(["AB", "B_STEPS"])]
     df = df[df["attack"] == "moeva"]
-    df = df[df["is_constrained"] == True]
+    df = df[df["is_constrained"]]
 
     # Sort
     df = df.sort_values(by=[f"{e}_order" for e in index + columns])
@@ -629,8 +587,8 @@ def table_moeva_budget(
 
 def table_eps(
     df: pd.DataFrame,
-    metric,
-) -> None:
+    metric: str,
+) -> pd.DataFrame:
     columns = ["source_model_arch"]
     index = ["dataset", "target_model_training", "is_constrained", "eps"]
 
@@ -690,11 +648,10 @@ def table_eps(
     return pivot
 
 
-
 def table_A_budget(
     df: pd.DataFrame,
-    metric,
-) -> None:
+    metric: str,
+) -> pd.DataFrame:
     columns = ["source_model_arch"]
     index = ["dataset", "target_model_training", "is_constrained", "n_iter"]
 
@@ -754,11 +711,10 @@ def table_A_budget(
     return pivot
 
 
-
 def table_acde(
     df: pd.DataFrame,
-    metric,
-) -> None:
+    metric: str,
+) -> pd.DataFrame:
     index = ["dataset", "target_model_training", "scenario_constrained"]
     columns = ["target_model_arch"]
 
@@ -856,7 +812,7 @@ def filter_test(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def run():
+def run() -> None:
     df = load_data(DATA_PATH)
     df = filter_test(df)
 
@@ -883,7 +839,7 @@ def run():
         duration.copy(),
         "main_table_ab_attack_duration",
     )
-    
+
     moeva_table = table_moeva_budget(df.copy(), "robust_acc")
     save_table(
         moeva_table.copy(),
@@ -892,27 +848,23 @@ def run():
     for ds in moeva_table.index.get_level_values(0).unique():
         moeva_table_ds = moeva_table.loc[ds]
         save_table(
-            moeva_table_ds,
-            f"{ds}/moeva_table_robust_accuracy",
-            caption=ds
+            moeva_table_ds, f"{ds}/moeva_table_robust_accuracy", caption=ds
         )
 
-    
     acde_table = table_acde(df.copy(), "robust_acc")
     save_table(
         acde_table,
         "acde_table_robust_accuracy",
         other_save=["latex_min", "latex_max"],
     )
-    
-    
+
     for ds in acde_table.index.get_level_values(0).unique():
         acde_table_ds = acde_table.loc[ds]
         save_table(
             acde_table_ds,
             f"acde_table_{ds}_robust_accuracy",
             other_save=["latex_min", "latex_max"],
-            caption=ds
+            caption=ds,
         )
 
     for attack in ["pgdl2", "apgd", "moeva", "caa3"]:
@@ -921,7 +873,7 @@ def run():
             table_eps(df_l.copy(), "robust_acc"),
             f"eps_{attack}_table_robust_accuracy",
         )
-        
+
     for attack in ["pgdl2", "apgd", "caa3"]:
         df_l = df[df["attack"] == attack]
         save_table(
