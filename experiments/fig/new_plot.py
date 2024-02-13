@@ -60,7 +60,7 @@ def to_latex_min_max(
 
 
 def to_latex(
-    df: pd.DataFrame, bold, in_col="mean", out_col="latex", auto_sem=True
+    df: pd.DataFrame, bold, in_col="mean", out_col="latex", auto_sem=True, custom_format="{:.3f}"
 ) -> None:
     if auto_sem == True:
         no_sem = df["attack"] == "no_attack"
@@ -70,28 +70,28 @@ def to_latex(
 
     df.loc[bold, out_col] = (
         "$\\mathbf{"
-        + df.loc[bold, in_col].map("{:.3f}".format)
+        + df.loc[bold, in_col].map(custom_format.format)
         + "}$"
         + "\\tiny{$\\mathbf{\\pm "
-        + (1.96 * df.loc[bold, "sem"]).map("{:.3f}".format)
+        + (1.96 * df.loc[bold, "sem"]).map(custom_format.format)
         + "}$}"
     )
     df.loc[~bold, out_col] = (
         "$"
-        + df.loc[~bold, in_col].map("{:.3f}".format)
+        + df.loc[~bold, in_col].map(custom_format.format)
         + "$"
         + "\\tiny{$\\pm "
-        + (1.96 * df.loc[~bold, "sem"]).map("{:.3f}".format)
+        + (1.96 * df.loc[~bold, "sem"]).map(custom_format.format)
         + "$}"
     )
     df.loc[no_sem & bold, out_col] = (
         "$\\mathbf{"
-        + df.loc[no_sem & bold, in_col].map("{:.3f}".format)
+        + df.loc[no_sem & bold, in_col].map(custom_format.format)
         + "}$"
     )
 
     df.loc[no_sem & ~bold, out_col] = (
-        "$" + df.loc[no_sem & ~bold, in_col].map("{:.3f}".format) + "$"
+        "$" + df.loc[no_sem & ~bold, in_col].map(custom_format.format) + "$"
     )
 
 
@@ -125,7 +125,7 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
     df = auto_beautify_values(df)
 
     if metric == "robust_acc":
-        to_latex_min_max(df, index, bold_min=True, bold_max=False)
+        to_latex_min_max(df, index, bold_min=True, bold_max=False,)
     elif metric == "attack_duration":
         df["bold"] = False
         df.loc[df["attack"].isin(["CAA", "MOEVA"]), "bold"] = (
@@ -145,6 +145,7 @@ def table_AB(df: pd.DataFrame, metric, with_clean_attack=True) -> None:
         to_latex(
             df,
             bold=df["bold"],
+            custom_format="{:.1f}",
         )
 
     # Pivot
@@ -365,10 +366,17 @@ def save_table(
 
     if other_save is not None:
         for i in range(len(df.columns.names) - 1):
-            print(i)
             df = df.swaplevel(i, i + 1, axis=1)
 
-        df = df.sort_index(axis=1, level=0)
+        def sort_custom(x):
+            local_sort = {
+                "latex": "0",
+                "latex_min": "1",
+                "latex_max": "2",
+            }
+            return local_sort.get(x, x)
+        df = df.sort_index(axis=1, level=[0,1], key= lambda x: x.map(sort_custom))
+        # df = df.sort_index(axis=1, level=0)
 
     style = df.style
 
@@ -378,7 +386,7 @@ def save_table(
         path,
         column_format="l" * len(df.index.names) + "|" + "l" * len(df.columns),
         multicol_align="c",
-        caption="CAPTION",
+        caption=caption,
         clines="skip-last;data",
         hrules=True,
         position_float="centering",
@@ -482,11 +490,30 @@ def plot_acde_one(
         x_label="Scenario",
         y_label="Accuracy",
         # fig_size=(24, 16),
-        legend_pos="best",
+        legend_pos="outside",
         # x_lim=None,
-        y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
+        # y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
+        y_lim=(0, 1),
         rotate_ticks=0,
         error_min_max=True,
+        fig_size=(6, 2),
+    )
+    barplot(
+        df,
+        name + "no_legend",
+        x="Scenario",
+        y="robust_acc",
+        hue="Model",
+        x_label="Scenario",
+        y_label="Accuracy",
+        # fig_size=(24, 16),
+        legend_pos=False,
+        # x_lim=None,
+        # y_lim=(df_min - df_delta * 0.05, df_max + df_delta * 0.05),
+        y_lim=(0, 1),
+        rotate_ticks=0,
+        error_min_max=True,
+        fig_size=(6, 2),
     )
 
 
@@ -663,6 +690,71 @@ def table_eps(
     return pivot
 
 
+
+def table_A_budget(
+    df: pd.DataFrame,
+    metric,
+) -> None:
+    columns = ["source_model_arch"]
+    index = ["dataset", "target_model_training", "is_constrained", "n_iter"]
+
+    # Filter
+    df = df[df["scenario"].isin(["AB", "A_STEPS"])]
+    # df = df[df["attack"] == "moeva"]
+    # df = df[df["is_constrained"] == True]
+
+    # Sort
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    # Aggregate
+
+    df = (
+        df.groupby(
+            GROUP_BY,
+            sort=False,
+        )[metric]
+        .agg(["mean", "std", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+    bold = df.groupby(
+        [
+            "dataset",
+            "target_model_training",
+            "is_constrained",
+            "source_model_arch",
+        ]
+    )["mean"].transform(lambda x: x == x.min())
+    to_latex(
+        df,
+        bold=bold,
+    )
+
+    # Pivot
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
+    return pivot
+
+
+
 def table_acde(
     df: pd.DataFrame,
     metric,
@@ -709,20 +801,20 @@ def table_acde(
         df,
         bold=df["bold"],
     )
-    # to_latex(
-    #     df,
-    #     bold=df["bold"],
-    #     in_col="min",
-    #     out_col="latex_min",
-    #     auto_sem=False,
-    # )
-    # to_latex(
-    #     df,
-    #     bold=df["bold"],
-    #     in_col="max",
-    #     out_col="latex_max",
-    #     auto_sem=False,
-    # )
+    to_latex(
+        df,
+        bold=df["bold"],
+        in_col="min",
+        out_col="latex_min",
+        auto_sem=False,
+    )
+    to_latex(
+        df,
+        bold=df["bold"],
+        in_col="max",
+        out_col="latex_max",
+        auto_sem=False,
+    )
 
     # Pivot
 
@@ -733,8 +825,8 @@ def table_acde(
             "mean",
             "sem",
             "latex",
-            # "latex_min",
-            # "latex_max",
+            "latex_min",
+            "latex_max",
             # "min",
             # "max",
         ],
@@ -768,30 +860,73 @@ def run():
     df = load_data(DATA_PATH)
     df = filter_test(df)
 
-    save_table(
-        table_AB(df.copy(), "robust_acc", with_clean_attack=True),
-        "main_table_ab_robust_accuracy",
-    )
-    save_table(
-        table_AB(df.copy(), "attack_duration", with_clean_attack=False),
-        "main_table_ab_attack_duration",
-    )
-    save_table(
-        table_moeva_budget(df.copy(), "robust_acc"),
-        "moeva_table_robust_accuracy",
+    robust_acc = table_AB(df.copy(), "robust_acc", with_clean_attack=True)
+    duration = table_AB(df.copy(), "attack_duration", with_clean_attack=False)
+
+    rob_and_dur = pd.concat([robust_acc, duration], axis=1)
+
+    rob_and_dur.columns = pd.MultiIndex.from_tuples(
+        [(col[0], "Robust Accuracy", col[1]) for col in robust_acc.columns]
+        + [(col[0], "Duration", col[1]) for col in duration.columns]
     )
 
     save_table(
-        table_acde(df.copy(), "robust_acc"),
-        "acde_table_robust_accuracy",
-        # other_save=["latex_min", "latex_max"],
+        rob_and_dur.copy(),
+        "main_table_ab_robust_duration",
     )
+
+    save_table(
+        robust_acc.copy(),
+        "main_table_ab_robust_accuracy",
+    )
+    save_table(
+        duration.copy(),
+        "main_table_ab_attack_duration",
+    )
+    
+    moeva_table = table_moeva_budget(df.copy(), "robust_acc")
+    save_table(
+        moeva_table.copy(),
+        "moeva_table_robust_accuracy",
+    )
+    for ds in moeva_table.index.get_level_values(0).unique():
+        moeva_table_ds = moeva_table.loc[ds]
+        save_table(
+            moeva_table_ds,
+            f"{ds}/moeva_table_robust_accuracy",
+            caption=ds
+        )
+
+    
+    acde_table = table_acde(df.copy(), "robust_acc")
+    save_table(
+        acde_table,
+        "acde_table_robust_accuracy",
+        other_save=["latex_min", "latex_max"],
+    )
+    
+    
+    for ds in acde_table.index.get_level_values(0).unique():
+        acde_table_ds = acde_table.loc[ds]
+        save_table(
+            acde_table_ds,
+            f"acde_table_{ds}_robust_accuracy",
+            other_save=["latex_min", "latex_max"],
+            caption=ds
+        )
 
     for attack in ["pgdl2", "apgd", "moeva", "caa3"]:
         df_l = df[df["attack"] == attack]
         save_table(
             table_eps(df_l.copy(), "robust_acc"),
             f"eps_{attack}_table_robust_accuracy",
+        )
+        
+    for attack in ["pgdl2", "apgd", "caa3"]:
+        df_l = df[df["attack"] == attack]
+        save_table(
+            table_A_budget(df_l.copy(), "robust_acc"),
+            f"A_budget_{attack}_table_robust_accuracy",
         )
 
     for dataset in df["dataset"].unique():
