@@ -1,20 +1,15 @@
 import json
 import re
-from typing import Any, Dict, List
-
+from datetime import datetime
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 
-
-from datetime import datetime
-from .beautify_data import (
-    data_order,
-    ordered_model_names,
-)
+from .beautify_data import data_order, ordered_model_names
 
 
-def generate_time_name():
+def generate_time_name() -> str:
     now = datetime.now()
     time_name = now.strftime("%Y_%m_%d_%H_%M_%S")
     return time_name
@@ -67,7 +62,6 @@ def add_weight_path_target(df: pd.DataFrame) -> pd.DataFrame:
 
 def augment_data(df: pd.DataFrame) -> pd.DataFrame:
     df = add_no_attack(df)
-    # df = add_weight_path_target(df)
     return df
 
 
@@ -141,9 +135,6 @@ def add_order(df: pd.DataFrame) -> pd.DataFrame:
     for col, names in data_order.items():
         names = list(names.keys())
         mapping = {name: i for i, name in enumerate(names)}
-        # print(col)
-        # print(df[col].unique())
-        # print(df[col].value_counts(ascending=True))
         df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
             ~df[col].isna(), col
         ].apply(lambda x: mapping[x])
@@ -170,10 +161,7 @@ def parse_data(df: pd.DataFrame) -> pd.DataFrame:
     df = parse_attack_duration(df)
     df = parse_number_type(df)
     df = col_rename(df)
-    # print(df["dataset"].unique())
-    # print(df.shape)
     df = add_order(df)
-    df.to_csv("data_tmp.csv", index=False)
     return df
 
 
@@ -273,14 +261,11 @@ def correction_n_iter(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def run() -> None:
-    path = "data/xp_results/data_2024_01_10_22_01_33.json"
-    path = "data/xp_results/data_2024_02_07_13_18_09.json"
     path = "data/xp_results/data_2024_02_08_10_13_37.json"
     json_data = load_json_data(path)
     df = parse_json_data(json_data)
     df = augment_data(df)
     df = parse_data(df)
-    # print(df.shape)
     df = filter_columns(df)
     df = filter_values(df)
     df = filter_source_equal_target(df)
@@ -294,106 +279,8 @@ def run() -> None:
     df.to_csv("data_tmp.csv", index=False)
 
     df = df.sort_values(by=["scenario", "dataset"])
-    # print(df[["scenario", "dataset"]].value_counts(sort=False))
-    # print(df[df["dataset"].isna()].shape)
-    # print(df.shape)
-
     count = ["scenario", "dataset"]
-    # df = df[df["scenario"] == "A_STEPS"]
-    # df = df[df["n_iter"] == 0]
     print(df[count].sort_values(by=count).value_counts(sort=False))
-
-    # print(df[df["n_iter"] == -1]["scenario"].value_counts())
-
-    # print(df[df["n_iter"] == 0][count].value_counts())
-
-    # DEBUG
-
-    # df = df[df["dataset"] == "wids"]
-    # print(df.shape)
-    # df = df[df["is_constrained"] == True]
-    # print(df["is_constrained"].value_counts())
-    # df = df[df["target_model_arch"] == "tabnet"]
-    # check = [
-    #     "seed",
-    #     "n_iter",
-    #     "attack",
-    #     "target_model_training",
-    #     "is_constrained",
-    # ]
-    # check = [
-    #     "seed",
-    #     "n_iter",
-    #     "attack",
-    #     "target_model_training",
-    # ]
-    # df = df[df["scenario"] == "AB_EPS"]
-
-    # print(df.shape)
-
-    # print(df)
-
-    # for model in ["tabnet", "stg", "torchrln", "tabtransformer", "vime"]:
-    #     for seed in [0, 1, 2, 3, 4]:
-    #         for n_iter in [20, 50, 100]:
-    #             for attack in ["apgd", "pgdl2", "caa3"]:
-    #                 for target_model_training in ["default", "madry"]:
-    #                     for is_constrained in [True, False]:
-    #                         n = df[
-    #                             (df["seed"] == seed)
-    #                             & (df["n_iter"] == n_iter)
-    #                             & (df["attack"] == attack)
-    #                             & (
-    #                                 df["target_model_training"]
-    #                                 == target_model_training
-    #                             )
-    #                             & (df["is_constrained"] == is_constrained)
-    #                             & (df["target_model_arch"] == model)
-    #                         ]
-    #                         if n.shape[0] != 1:
-    #                             print(
-    #                                 attack,
-    #                                 seed,
-    #                                 model,
-    #                                 target_model_training,
-    #                                 is_constrained,
-    #                                 n_iter,
-    #                             )
-    # print(df["eps"].value_counts())
-    # print(df["attack"].value_counts())
-    # print(df["target_model_training"].value_counts())
-    # print(df["is_constrained"].value_counts())
-    # print(df["target_model_arch"].value_counts())
-    # print(df["seed"].value_counts())
-
-    # print(df.head())
-    # for model in ["tabnet", "stg", "torchrln", "tabtransformer", "vime"]:
-    #     for seed in [0, 1, 2, 3, 4]:
-    #         for eps in [0.25, 1.0]:
-    #             for attack in ["apgd", "pgdl2", "caa3", "moeva"]:
-    #                 for target_model_training in ["default", "madry"]:
-    #                     for is_constrained in [True, False]:
-    #                         n = df[
-    #                             (df["seed"] == seed)
-    #                             & (df["eps"] == eps)
-    #                             & (df["attack"] == attack)
-    #                             & (
-    #                                 df["target_model_training"]
-    #                                 == target_model_training
-    #                             )
-    #                             & (df["is_constrained"] == is_constrained)
-    #                             & (df["target_model_arch"] == model)
-    #                         ]
-    #                         if n.shape[0] != 1:
-    #                             print(
-    #                                 attack,
-    #                                 seed,
-    #                                 model,
-    #                                 target_model_training,
-    #                                 is_constrained,
-    #                                 eps,
-    #                                 n.shape[0],
-    #                             )
 
 
 if __name__ == "__main__":
