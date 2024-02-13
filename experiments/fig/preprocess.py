@@ -143,6 +143,7 @@ def add_order(df: pd.DataFrame) -> pd.DataFrame:
         mapping = {name: i for i, name in enumerate(names)}
         # print(col)
         # print(df[col].unique())
+        # print(df[col].value_counts(ascending=True))
         df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
             ~df[col].isna(), col
         ].apply(lambda x: mapping[x])
@@ -273,6 +274,8 @@ def correction_n_iter(df: pd.DataFrame) -> pd.DataFrame:
 
 def run() -> None:
     path = "data/xp_results/data_2024_01_10_22_01_33.json"
+    path = "data/xp_results/data_2024_02_07_13_18_09.json"
+    path = "data/xp_results/data_2024_02_08_10_13_37.json"
     json_data = load_json_data(path)
     df = parse_json_data(json_data)
     df = augment_data(df)
