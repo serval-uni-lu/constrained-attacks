@@ -1,34 +1,34 @@
+from typing import Optional, Union
+
 import numpy as np
 from pymoo.core.problem import Problem
 
 from constrained_attacks.classifier.classifier import Classifier
-from constrained_attacks.constraints.constraints import (
-    Constraints,
-    get_feature_min_max,
-)
-from constrained_attacks.constraints.constraints_executor import (
-    NumpyConstraintsExecutor,
-)
-from constrained_attacks.constraints.relation_constraint import AndConstraint
+from constrained_attacks.typing import NDNumber
 from constrained_attacks.utils import compute_distance
+from mlc.constraints.constraints import Constraints, get_feature_min_max
+from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
+from mlc.constraints.numpy_backend import NumpyBackend
+from mlc.constraints.relation_constraint import AndConstraint
+from mlc.utils import to_numpy_number
 
 NB_OBJECTIVES = 3
 
 
-def get_nb_objectives():
+def get_nb_objectives() -> int:
     return NB_OBJECTIVES
 
 
 class AdversarialProblem(Problem):
     def __init__(
         self,
-        x_clean: np.ndarray,
+        x_clean: NDNumber,
         y_clean: int,
         classifier: Classifier,
         constraints: Constraints,
         fun_distance_preprocess=lambda x: x,
-        norm=None,
-    ):
+        norm: Optional[Union[str, int]] = None,
+    ) -> None:
         # Parameters
         self.x_clean = x_clean
         self.y_clean = y_clean
@@ -64,15 +64,24 @@ class AdversarialProblem(Problem):
         return self.x_clean
 
     def _obj_misclassify(self, x: np.ndarray) -> np.ndarray:
-        y_pred = self.classifier.predict_proba(x)[:, self.y_clean]
+        if hasattr(self.classifier, "predict_proba"):
+            y_pred = self.classifier.predict_proba(x)[:, self.y_clean]
+        else:
+            y_pred = self.classifier(x)[:, self.y_clean]
+
         return y_pred
 
     def _obj_distance(self, x_1: np.ndarray, x_2: np.ndarray) -> np.ndarray:
         return compute_distance(x_1, x_2, self.norm)
 
     def _calculate_constraints(self, x):
-        executor = NumpyConstraintsExecutor(
+        if (self.constraints.relation_constraints is None) or (
+            len(self.constraints.relation_constraints) == 0
+        ):
+            return np.zeros(x.shape[0])
+        executor = ConstraintsExecutor(
             AndConstraint(self.constraints.relation_constraints),
+            NumpyBackend(),
             feature_names=self.constraints.feature_names,
         )
 
@@ -104,7 +113,7 @@ class AdversarialProblem(Problem):
 
         obj_constraints = self._calculate_constraints(x_adv)
 
-        F = [obj_misclassify, obj_distance, obj_constraints]
+        F = [to_numpy_number(obj_misclassify), obj_distance, obj_constraints]
 
         # --- Output
         out["F"] = np.column_stack(F)

@@ -12,7 +12,6 @@ class InitialStateSampling(Sampling):
         super().__init__()
 
     def _do(self, problem, n_samples, **kwargs):
-
         # Retrieve original
         x_clean = problem.x_clean[problem.constraints.mutable_features]
 

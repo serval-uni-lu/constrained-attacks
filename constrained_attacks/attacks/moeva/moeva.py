@@ -1,7 +1,10 @@
 import os
 import warnings
+from typing import Any
 
+import joblib
 import numpy as np
+import torch
 from joblib import Parallel, delayed
 from pymoo.algorithms.base.genetic import GeneticAlgorithm
 from pymoo.algorithms.moo.rnsga3 import RNSGA3
@@ -20,9 +23,9 @@ from tqdm import tqdm
 
 from constrained_attacks.attacks.moeva.history_callback import HistoryCallback
 from constrained_attacks.attacks.moeva.operators import InitialStateSampling
-from constrained_attacks.constraints.constraints import Constraints
 from constrained_attacks.utils import cut_in_batch
-
+from mlc.constraints.constraints import Constraints
+from mlc.utils import to_numpy_number, to_torch_number
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 
 
@@ -35,21 +38,23 @@ def tf_lof_off():
 
 class Moeva2:
     def __init__(
-        self,
-        classifier_class,
-        constraints: Constraints,
-        norm=None,
-        fun_distance_preprocess=lambda x: x,
-        n_gen=100,
-        n_pop=203,
-        n_offsprings=100,
-        save_history=None,
-        seed=None,
-        n_jobs=-1,
-        verbose=1,
+            self,
+            model,
+            constraints: Constraints,
+            norm=None,
+            fun_distance_preprocess=lambda x: x,
+            n_gen=100,
+            n_pop=203,
+            n_offsprings=100,
+            save_history=None,
+            seed=None,
+            n_jobs=-1,
+            verbose=1,
+            **kwargs
     ) -> None:
 
-        self.classifier_class = classifier_class
+        self.classifier_class = model
+        self.model = model  ## for compatibility with multi-attack
         self.constraints = constraints
         self.norm = norm
         self.fun_distance_preprocess = fun_distance_preprocess
@@ -108,6 +113,7 @@ class Moeva2:
                 "int": get_crossover(
                     "int_two_point",
                 ),
+                "cat": get_crossover("int_two_point"),
             },
         )
 
@@ -117,6 +123,7 @@ class Moeva2:
             {
                 "real": get_mutation("real_pm", eta=20),
                 "int": get_mutation("int_pm", eta=20),
+                "cat": get_mutation("int_pm", eta=20),
             },
         )
 
@@ -203,14 +210,24 @@ class Moeva2:
     # Loop over inputs to generate adversarials using the _one_generate
     # function above
     def generate(self, x: np.ndarray, y, batch_size=None):
+
+        if isinstance(x, torch.Tensor):
+            return to_torch_number(
+                self.generate(
+                    to_numpy_number(x), to_numpy_number(y), batch_size
+                )
+            )
+
         if self.ref_points is None:
             self.ref_points = get_reference_directions(
-                "energy", NB_OBJECTIVES, self.n_pop, seed=1
+                "energy", NB_OBJECTIVES, self.n_pop, seed=self.seed
             )
 
         batches_i = cut_in_batch(
             np.arange(x.shape[0]),
-            n_desired_batch=self.n_jobs,
+            n_desired_batch=self.n_jobs
+            if self.n_jobs > 1
+            else joblib.cpu_count(),
             batch_size=batch_size,
         )
 
@@ -250,3 +267,8 @@ class Moeva2:
             return x_adv, histories
         else:
             return np.concatenate(out)
+
+    def __call__(
+            self, x: np.ndarray, y, batch_size=None, *args, **kwargs
+    ) -> Any:
+        return self.generate(x, y, batch_size)

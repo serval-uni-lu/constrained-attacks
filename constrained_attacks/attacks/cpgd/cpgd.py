@@ -1,28 +1,28 @@
 import numpy as np
 from art.attacks.evasion import ProjectedGradientDescent as PGD
 from art.estimators.classification import TensorFlowV2Classifier
-
-from constrained_attacks.attacks.cpgd.tf2_classifier import TF2Classifier
 from constrained_attacks.constraints.constraints import (
     Constraints,
     fix_feature_types,
     get_feature_min_max,
 )
 
+from constrained_attacks.attacks.cpgd.tf2_classifier import TF2Classifier
+
 
 class CPGD:
     def __init__(
-        self,
-        classifier,
-        constraints: Constraints,
-        norm=None,
-        eps=0.3,
-        eps_step=0.1,
-        save_history=None,
-        seed=None,
-        n_jobs=-1,
-        verbose=1,
-        enable_constraints=True,
+            self,
+            classifier,
+            constraints: Constraints,
+            norm=None,
+            eps=0.3,
+            eps_step=0.1,
+            save_history=None,
+            seed=None,
+            n_jobs=-1,
+            verbose=1,
+            enable_constraints=True,
     ) -> None:
         self.classifier = classifier
         self.constraints = constraints
