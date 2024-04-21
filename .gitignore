@@ -156,6 +156,9 @@ cython_debug/
 .run/
 data/
 .cometml-runs/data/
+cache.bk/
+cache.kdd24/
 docs/
+out/
 tmp/
 ��

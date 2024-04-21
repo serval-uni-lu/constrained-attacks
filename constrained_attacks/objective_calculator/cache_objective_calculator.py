@@ -10,6 +10,10 @@ from mlc.constraints.constraints_checker import ConstraintChecker
 
 from constrained_attacks.typing import NDBool, NDInt, NDNumber
 from constrained_attacks.utils import compute_distance
+from tqdm import tqdm
+from joblib import Parallel, delayed
+import torch
+import joblib
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -106,20 +110,32 @@ class ObjectiveCalculator:
         constraints_checker = ConstraintChecker(
             self.constraints, self.thresholds["constraints"]
         )
-
-        constraint_violation = np.array(
-            [
-                1
-                - constraints_checker.check_constraints(
-                    x_clean[i][np.newaxis, :], x_adv[i]
+        
+        def parallel_fun(local_x_clean, local_x_adv):
+            out = 1 - constraints_checker.check_constraints(
+                    local_x_clean[np.newaxis, :], local_x_adv
                 )
-                for i in range(len(x_clean))
-            ]
-        )
+            return out 
+        
+        constraint_violation = np.array(Parallel(n_jobs=-1)(delayed(parallel_fun)(x_clean[i], x_adv[i]) for i in tqdm(range(len(x_clean)))))
+        # constraint_violation = np.array(
+        #     [
+        #         1
+        #         - constraints_checker.check_constraints(
+        #             x_clean[i][np.newaxis, :], x_adv[i]
+        #         )
+        #         for i in tqdm(range(len(x_clean)))
+        #     ]
+        # )
 
         # Misclassification
         y_clean = np.repeat(y_clean, x_adv.shape[1], axis=0)
-        classification = self.classifier(x_adv.reshape(-1, x_adv.shape[-1]))
+        torch.set_num_threads(joblib.cpu_count())
+        
+        N_SPLIT = 200 if x_adv.reshape(-1, x_adv.shape[-1]).shape[0] > 200 else x_adv.reshape(-1, x_adv.shape[-1]).shape[0]
+        
+        for_classification = np.array_split(x_adv.reshape(-1, x_adv.shape[-1]), N_SPLIT)
+        classification = np.concatenate([self.classifier(e) for e in tqdm(for_classification)])
 
         label_mask = np.zeros(classification.shape)
         label_mask[np.arange(len(y_clean)), y_clean] = 1
@@ -133,9 +149,14 @@ class ObjectiveCalculator:
 
         x_clean_distance = self.fun_distance_preprocess(x_clean)
         x_adv_shape = x_adv.shape
-        x_adv_distance = self.fun_distance_preprocess(
-            x_adv.reshape(-1, x_adv.shape[-1])
-        ).reshape((*x_adv_shape[:-1], -1))
+        
+        for_distance = np.array_split(x_adv.reshape(-1, x_adv.shape[-1]), N_SPLIT)
+        
+        x_adv_distance = np.concatenate([self.fun_distance_preprocess(
+            e
+        ) for e in tqdm(for_distance)])
+        
+        x_adv_distance = x_adv_distance.reshape((*x_adv_shape[:-1], -1))
         distance = np.array(
             [
                 compute_distance(
@@ -189,7 +210,9 @@ class ObjectiveCalculator:
         x_adv: NDNumber,
         recompute: bool = True,
     ) -> ObjectiveRespected:
+        self.objectives_respected = None
         if self.objectives_respected is None or recompute:
+            print("Always computes")
             objectives_eval = self.get_objectives_eval(
                 x_clean, y_clean, x_adv, recompute
             )
@@ -309,7 +332,7 @@ class ObjectiveCalculator:
             x_clean, y_clean, x_adv, recompute=recompute
         )
         objectives_respected = self.get_objectives_respected(
-            x_clean, y_clean, x_adv, recompute=recompute
+            x_clean, y_clean, x_adv, recompute=False
         )
         objectives_mdc = objectives_respected.mdc
 

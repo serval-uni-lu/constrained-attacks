@@ -38,15 +38,15 @@ class XP(object):
                 disabled=False,
             )
 
-            experiment = OfflineExperiment(
-                project_name=project_name,
-                workspace=workspace,
-                auto_param_logging=False,
-                auto_metric_logging=False,
-                parse_args=False,
-                display_summary=False,
-                disabled=False,
-            )
+            # experiment = OfflineExperiment(
+            #     project_name=project_name,
+            #     workspace=workspace,
+            #     auto_param_logging=False,
+            #     auto_metric_logging=False,
+            #     parse_args=False,
+            #     display_summary=False,
+            #     disabled=False,
+            # )
 
             experiment.set_name(experiment_name)
             experiment.log_parameters(args)
@@ -122,7 +122,7 @@ class LocalXp:
         self.parameters = {}
         self.metrics = {}
 
-        self.log_parameters(args)
+        self.log_parameters(**args)
 
         self.workspace = workspace
         self.project_name = project_name
@@ -155,15 +155,15 @@ class LocalXp:
         with open(
             os.path.join(self.path, self.experiment_name + ".json"), "w"
         ) as f:
-            f.write(
-                json.dumps(
-                    {
-                        "parameters": self.parameters,
-                        "metrics": self.metrics,
-                    }
-                )
+            json.dump(
+                {
+                    "parameters": self.parameters,
+                    "metrics": self.metrics,
+                }, 
+                f, 
+                indent=4
             )
-
+            
     def end(self):
         self.save_json()
 

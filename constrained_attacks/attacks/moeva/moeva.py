@@ -48,7 +48,7 @@ class Moeva2:
             n_offsprings=100,
             save_history=None,
             seed=None,
-            n_jobs=-1,
+            n_jobs=32,
             verbose=1,
             **kwargs
     ) -> None:
@@ -169,7 +169,7 @@ class Moeva2:
             problem,
             algorithm,
             termination,
-            verbose=0,
+            verbose=1,
             seed=self.seed,
             callback=callback,
             save_history=False,
@@ -189,9 +189,11 @@ class Moeva2:
 
     def _batch_generate(self, x, y, batch_i):
         tf_lof_off()
+        # torch.set_num_threads(1)
 
         if self.verbose >= 2:
             print(f"Starting batch #{batch_i} with {len(x)} inputs.")
+        print(f"Starting batch #{batch_i} with {len(x)} inputs.")
         iterable = enumerate(x)
         if (self.verbose >= 2) and (batch_i == 0):
             iterable = tqdm(iterable, total=len(x))
@@ -223,6 +225,7 @@ class Moeva2:
                 "energy", NB_OBJECTIVES, self.n_pop, seed=self.seed
             )
 
+        self.n_jobs = 1000
         batches_i = cut_in_batch(
             np.arange(x.shape[0]),
             n_desired_batch=self.n_jobs
@@ -230,6 +233,7 @@ class Moeva2:
             else joblib.cpu_count(),
             batch_size=batch_size,
         )
+        self.n_jobs = 12
 
         if isinstance(y, int):
             y = np.repeat(y, x.shape[0])
@@ -237,9 +241,13 @@ class Moeva2:
         self._check_inputs(x, y)
 
         iterable = enumerate(batches_i)
+        self.verbose=1
         if self.verbose >= 1:
             iterable = tqdm(iterable, total=len(batches_i))
 
+              
+        print(self.n_jobs)
+        
         # Sequential Run
         if self.n_jobs == 1:
             print("Sequential run.")
@@ -248,6 +256,7 @@ class Moeva2:
                 for i, batch_indexes in iterable
             ]
 
+  
         # Parallel run
         else:
             print("Parallel run.")
@@ -258,6 +267,7 @@ class Moeva2:
                 for i, batch_indexes in iterable
             )
 
+        print("Done with moeva")
         if self.save_history is not None:
             out = zip(*out)
             out = [np.concatenate(out_0) for out_0 in out]
