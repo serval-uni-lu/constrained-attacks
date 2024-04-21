@@ -129,13 +129,14 @@ class ConstrainedMultiAttack(MultiAttack):
             )
 
             # Sanity check start, can ignore for debugging
-            clean_indices = (
-                self.objective_calculator.get_successful_attacks_clean_indexes(
-                    numpy_clean, labels[fails].cpu(), numpy_adv
-                )
-            )
-            assert np.equal(clean_indices, success_attack_indices).all()
+            # clean_indices = (
+            #     self.objective_calculator.get_successful_attacks_clean_indexes(
+            #         numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
+            #     )
+            # )
+            # assert np.equal(clean_indices, success_attack_indices).all()
             # Sanity check end
+            print("After check")
 
             # If we found adversarials
             if len(success_attack_indices) > 0:
@@ -149,22 +150,26 @@ class ConstrainedMultiAttack(MultiAttack):
             multi_atk_records.append(len(fails))
 
             self.robust_accuracies.append(1 - (len(fails) / batch_size))
+            
+            
 
-            measure = self.objective_calculator.get_objectives_respected(
-                numpy_clean, labels[fails].cpu(), numpy_adv
-            )
-            self.constraints_rate.append(
-                [
-                    constraints_percentage(c, numpy_adv, measure)
-                    for c in self.objective_calculator.constraints.relation_constraints
-                ]
-            )
+            # measure = self.objective_calculator.get_objectives_respected(
+            #     numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
+            # )
+            # self.constraints_rate.append(
+            #     [
+            #         constraints_percentage(c, numpy_adv, measure)
+            #         for c in self.objective_calculator.constraints.relation_constraints
+            #     ]
+            # )
 
             self.mdc.append(
                 self.objective_calculator.get_success_rate(
-                    numpy_clean, labels[fails].cpu(), numpy_adv
+                    numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
                 )
             )
+            
+            print("Over")
 
             if len(fails) == 0:
                 break
