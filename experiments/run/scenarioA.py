@@ -14,7 +14,8 @@ import copy
 import time
 from argparse import ArgumentParser
 from typing import List, Tuple
-
+from dataclasses import dataclass, fields
+import dataclasses
 import numpy as np
 import torch
 from mlc.constraints.constraints_backend_executor import ConstraintsExecutor
@@ -28,8 +29,11 @@ from mlc.models.model import Model
 from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
 from sklearn.model_selection import train_test_split
+from constrained_attacks.objective_calculator.cache_objective_calculator import ObjectiveRespected
 
-from comet import XP
+from comet import LocalXp as XP
+# from comet import LocalXp as XP
+
 from constrained_attacks.attacks.cta.caa import (
     ConstrainedAutoAttack,
     ConstrainedAutoAttack2,
@@ -40,11 +44,23 @@ from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.cfab import CFAB
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.moeva.moeva import Moeva2
+from constrained_attacks.attacks.cta.lowprofool import LowProFool
+from constrained_attacks.attacks.cta.ucs import UCS
+
 from constrained_attacks.ensemble import Ensemble
 from constrained_attacks.objective_calculator.cache_objective_calculator import (
     ObjectiveCalculator,
 )
 from constrained_attacks.typing import NDInt
+
+
+def get_weights(dataset):
+    x, y = dataset.get_x_y()
+    weights = abs(x.corrwith(pd.Series(y)))
+    weights[weights.isna()] = 0
+    weights = weights / np.linalg.norm(weights)
+
+    return weights.values
 
 
 def run_experiment(
@@ -124,6 +140,21 @@ def run_experiment(
                     "steps": steps,
                 },
             ),
+            "lowprofool": (
+                LowProFool,
+                {
+                    "weights": get_weights(dataset),
+                    "steps": steps,
+                    "model_name": model.name
+                }
+            ),
+            "ucs": (
+                UCS,
+                {
+                    "fun_distance_preprocess": scaler.transform,
+                    "model_name": model.name
+                }
+            )
         }
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
@@ -137,7 +168,7 @@ def run_experiment(
         **attack_class[1],
     }
 
-    model_attack = model.wrapper_model if attack_name != "moeva" else model
+    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs"]) else model
 
     attack = attack_class[0](
         constraints=constraints,
@@ -225,10 +256,10 @@ def run_experiment(
         experiment.log_metric(
             "attack_distance_ok_rate", attack.distance_ok, step=batch_idx
         )
-        # for i, e in enumerate(auto_attack_metrics.mdc):
-        #     experiment.log_metrics(
-        #         vars(e), step=(i+1)*10
-        #     )
+        for i, e in enumerate(auto_attack_metrics.mdc):
+            ele = dataclasses.asdict(e)
+            for key in ele:
+                experiment.log_metric(f"{i}_{key}", ele[key])
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
@@ -332,7 +363,7 @@ def run_experiment(
                 )
                 experiment.log_metric("adv_auc", adv_auc, step=batch_idx)
 
-        experiment.log_metrics(vars(success_rate), step=batch_idx)
+        experiment.log_metrics(**vars(success_rate), step=batch_idx)
 
         if save_examples:
             x_adv_df = pd.DataFrame(adv_x[:, 0, :], columns=x.columns)
@@ -547,6 +578,8 @@ def run(
     # Verify model
 
     metric = create_metric("auc")
+
+    print(f"BUGGGGGGGGG {x_test.shape}")
     auc = compute_metric(
         model,
         metric,
@@ -566,6 +599,19 @@ def run(
     constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
     constraints_ok = (constraints_val <= 1e-9).float().mean()
     print(f"Constraints ok: {constraints_ok * 100:.2f}%")
+    if constraints_ok <= 0.9:
+        for i, e in enumerate(constraints.relation_constraints):
+            constraints_executor = ConstraintsExecutor(
+                AndConstraint([e, e]),
+                PytorchBackend(),
+                feature_names=constraints.feature_names,
+            )
+            constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
+            constraints_ok = (constraints_val <= 1e-9).float().mean()
+            print(f"Constraints {i} ok: {constraints_ok * 100:.2f}%, {constraints_val.max()}")
+            i_print = np.argmax(constraints_val.numpy())
+            print(x_test["header_FileAlignment"].iloc[i_print])
+            
     assert constraints_ok > 0.9
 
     print("--------- End of verification ---------")
