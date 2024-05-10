@@ -38,9 +38,11 @@ from constrained_attacks.attacks.cta.caa import (
     ConstrainedAutoAttack,
     ConstrainedAutoAttack2,
     ConstrainedAutoAttack3,
+    ConstrainedAutoAttack4,
     ConstrainedMultiAttack,
 )
 from constrained_attacks.attacks.cta.capgd import CAPGD
+from constrained_attacks.attacks.cta.capgd2 import CAPGD2
 from constrained_attacks.attacks.cta.cfab import CFAB
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.moeva.moeva import Moeva2
@@ -72,7 +74,7 @@ def run_experiment(
     y,
     args,
     save_examples: int = 1,
-    xp_path="./data",
+    xp_path="./data/advs",
     filter_class=None,
     n_jobs=1,
     ATTACKS=None,
@@ -103,8 +105,13 @@ def run_experiment(
 
     if ATTACKS is None:
         ATTACKS = {
-            "pgdl2": (CPGDL2, {"steps": steps}),
+            "pgdl2ijcai": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False, "fix_constraints_ijcai": True}),
+            "pgdl2org": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False}),
+            "pgdl2rsae": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": True}),
+            "pgdl2nrsnae": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": False}),
+            "pgdl2": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": True}),
             "apgd": (CAPGD, {"steps": steps}),
+            "apgd2": (CAPGD2, {"steps": steps, "n_restarts": 2}),
             "fab": (CFAB, {}),
             "moeva": (
                 Moeva2,
@@ -140,6 +147,14 @@ def run_experiment(
                     "steps": steps,
                 },
             ),
+            "caa4": (
+                ConstrainedAutoAttack4,
+                {
+                    "constraints_eval": constraints_eval,
+                    "n_jobs": n_jobs,
+                    "steps": steps,
+                },
+            ),
             "lowprofool": (
                 LowProFool,
                 {
@@ -153,6 +168,14 @@ def run_experiment(
                 {
                     "fun_distance_preprocess": scaler.transform,
                     "model_name": model.name
+                }
+            ), 
+            "bfs": (
+                UCS,
+                {
+                    "fun_distance_preprocess": scaler.transform,
+                    "model_name": model.name,
+                    "epsilon": 1000000
                 }
             )
         }
@@ -168,7 +191,7 @@ def run_experiment(
         **attack_class[1],
     }
 
-    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs"]) else model
+    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs", "bfs"]) else model
 
     attack = attack_class[0](
         constraints=constraints,
@@ -225,7 +248,7 @@ def run_experiment(
         #     print(attack.attacks[0].__name__)
 
         auto_attack_metrics = attack
-        if isinstance(attack.attacks[0], ConstrainedAutoAttack3):
+        if isinstance(attack.attacks[0], ConstrainedAutoAttack3) or isinstance(attack.attacks[0], ConstrainedAutoAttack4):
             auto_attack_metrics = attack.attacks[0]._autoattack
             experiment.log_metric(
                 "attack_constraints_rate_steps_inner",
