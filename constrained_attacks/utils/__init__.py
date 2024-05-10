@@ -115,7 +115,7 @@ def fix_immutable(
 
 
 def fix_equality_constraints(
-    constraints: Constraints, x_adv: torch.Tensor
+    constraints: Constraints, x_adv: torch.Tensor, fix_constraints_ijcai=False
 ) -> torch.Tensor:
     if constraints.relation_constraints is None:
         return x_adv
@@ -127,6 +127,17 @@ def fix_equality_constraints(
             and isinstance(c.left_operand, Feature)
         )
     ]
+
+    if fix_constraints_ijcai:
+        constraints_to_fix = [
+            c
+            for c in constraints.relation_constraints
+            if (
+                isinstance(c, EqualConstraint)
+                and isinstance(c.left_operand, Feature)
+                and (c.left_operand.feature_id == "installment")
+            )
+        ]
 
     constraints_fixer = ConstraintsFixer(
         guard_constraints=constraints_to_fix,

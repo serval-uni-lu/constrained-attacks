@@ -20,9 +20,10 @@ from constrained_attacks.utils import (
     fix_immutable,
     fix_types,
 )
+from mlc.utils import to_numpy_number
 
 
-class CAPGD(Attack):
+class CAPGD2(Attack):
     r"""
     APGD in the paper 'Reliable evaluation of adversarial robustness with an ensemble of diverse parameter-free attacks'
     [https://arxiv.org/abs/2003.01690]
@@ -125,7 +126,7 @@ class CAPGD(Attack):
         x = x.clone().detach().to(self.device)
         labels = labels.clone().detach().to(self.device)
 
-        _, adv = self.perturb(x, labels, cheap=True)
+        _, adv = self.perturb(x, labels, x_in,cheap=True)
 
         x = self.scaler.inverse_transform(x)
         adv = self.scaler.inverse_transform(adv)
@@ -158,7 +159,7 @@ class CAPGD(Attack):
             - x_sorted[:, -1] * (1.0 - ind)
         ) / (x_sorted[:, -1] - x_sorted[:, -3] + 1e-12)
 
-    def attack_single_run(self, x_in, y_in):
+    def attack_single_run(self, x_in, y_in, n_restart):
         x = x_in.clone() if len(x_in.shape) == 2 else x_in.clone().unsqueeze(0)
         y = y_in.clone() if len(y_in.shape) == 1 else y_in.clone().unsqueeze(0)
 
@@ -177,62 +178,66 @@ class CAPGD(Attack):
             )
 
         # -- Random initialization
-
-        if self.norm == "Linf":
-            t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
-            x_adv = x.detach() + self.mutable_mask.to(self.device) * (
-                self.eps
-                * torch.ones(
-                    [
-                        x.shape[0],
-                        1,
-                    ]
-                )
-                .to(self.device)
-                .detach()
-                * t
-                / (
-                    t.reshape([t.shape[0], -1])
-                    .abs()
-                    .max(dim=1, keepdim=True)[0]
-                    .reshape(
+        if (self.n_restarts != 1) and (n_restart != 0):
+            print("Random")
+            if self.norm == "Linf":
+                t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
+                x_adv = x.detach() + self.mutable_mask.to(self.device) * (
+                    self.eps
+                    * torch.ones(
                         [
-                            -1,
+                            x.shape[0],
                             1,
                         ]
                     )
-                )
-            )
-        elif self.norm == "L2":
-            t = torch.randn(x.shape).to(self.device).detach()
-            if self.mutable_mask.shape[0] < x.shape[1]:
-                self.mutable_mask = torch.cat(
-                    (
-                        self.mutable_mask,
-                        torch.ones(
-                            1,
-                        ).to(self.mutable_mask.device),
+                    .to(self.device)
+                    .detach()
+                    * t
+                    / (
+                        t.reshape([t.shape[0], -1])
+                        .abs()
+                        .max(dim=1, keepdim=True)[0]
+                        .reshape(
+                            [
+                                -1,
+                                1,
+                            ]
+                        )
                     )
                 )
+            elif self.norm == "L2":
+                t = torch.randn(x.shape).to(self.device).detach()
+                if self.mutable_mask.shape[0] < x.shape[1]:
+                    self.mutable_mask = torch.cat(
+                        (
+                            self.mutable_mask,
+                            torch.ones(
+                                1,
+                            ).to(self.mutable_mask.device),
+                        )
+                    )
 
-            x_adv = x.detach() + self.mutable_mask * (
-                self.eps
-                * torch.ones(
-                    [
-                        x.shape[0],
-                        1,
-                    ]
+                x_adv = x.detach() + self.mutable_mask * (
+                    self.eps
+                    * torch.ones(
+                        [
+                            x.shape[0],
+                            1,
+                        ]
+                    )
+                    .to(self.device)
+                    .detach()
+                    * t
+                    / (
+                        (t**2)
+                        .sum(dim=list(range(1, len(x.shape))), keepdim=True)
+                        .sqrt()
+                        + 1e-12
+                    )
                 )
-                .to(self.device)
-                .detach()
-                * t
-                / (
-                    (t**2)
-                    .sum(dim=list(range(1, len(x.shape))), keepdim=True)
-                    .sqrt()
-                    + 1e-12
-                )
-            )
+        else:
+            print("Init")
+            x_adv = x.detach()
         x_adv = x_adv.clamp(0.0, 1.0)
         x_best = x_adv.clone()
         x_best_adv = x_adv.clone()
@@ -512,7 +517,7 @@ class CAPGD(Attack):
             inputs = self.scaler.inverse_transform(inputs)
         return super().get_logits(inputs, labels, *args, **kwargs)
 
-    def perturb(self, x_in, y_in, best_loss=False, cheap=True):
+    def perturb(self, x_in, y_in, x_in_unscaled, best_loss=False, cheap=True, ):
         assert self.norm in ["Linf", "L2"]
         x = x_in.clone() if len(x_in.shape) == 2 else x_in.clone().unsqueeze(0)
         y = y_in.clone() if len(y_in.shape) == 1 else y_in.clone().unsqueeze(0)
@@ -538,31 +543,34 @@ class CAPGD(Attack):
 
             else:
                 for counter in range(self.n_restarts):
-                    ind_to_fool = acc.nonzero().squeeze()
+                    # ind_to_fool = acc.nonzero().squeeze()
 
-                    if self.objective_calculator is not None:
-                        x_clean = self.scaler.inverse_transform(x_in.cpu())
-                        x_adv_for_ind = fix_types(
-                            x_clean=x_clean,
-                            x_adv=self.scaler.inverse_transform(adv.cpu()),
-                            types=self.constraints.feature_types,
-                        )
+                    # if self.objective_calculator is not None:
+                    #     x_clean = self.scaler.inverse_transform(x_in.clone().cpu())
+                    #     x_adv_for_ind = fix_types(
+                    #         x_clean=x_clean,
+                    #         x_adv=self.scaler.inverse_transform(adv.cpu()),
+                    #         types=self.constraints.feature_types,
+                    #     )
 
-                        ind_to_fool = self.objective_calculator.get_unsuccessful_attacks_clean_indexes(
-                            x_clean=x_clean.cpu().numpy(),
-                            y_clean=y_in.cpu().numpy(),
-                            x_adv=x_adv_for_ind.clone()
-                            .detach()
-                            .numpy()[:, np.newaxis, :],
-                        )
-                        ind_to_fool = (
-                            torch.from_numpy(ind_to_fool)
-                            .to(self.device)
-                            .long()
-                        )
+                    #     ind_to_fool = self.objective_calculator.get_unsuccessful_attacks_clean_indexes(
+                    #         x_clean=x_clean.cpu().numpy(),
+                    #         y_clean=y_in.cpu().numpy(),
+                    #         x_adv=x_adv_for_ind.clone()
+                    #         .detach()
+                    #         .numpy()[:, np.newaxis, :],
+                    #     )
+                    if counter == 0:
+                        ind_to_fool = np.arange(len(x))
+                    ind_to_fool = (
+                        torch.from_numpy(ind_to_fool)
+                        .to(self.device)
+                        .long()
+                    )
                     if len(ind_to_fool.shape) == 0:
                         ind_to_fool = ind_to_fool.unsqueeze(0)
                     if ind_to_fool.numel() != 0:
+                        print(f"IDX: Fool {len(ind_to_fool)}")
                         x_to_fool, y_to_fool = (
                             x[ind_to_fool].clone(),
                             y[ind_to_fool].clone(),
@@ -572,12 +580,29 @@ class CAPGD(Attack):
                             acc_curr,
                             loss_curr,
                             adv_curr,
-                        ) = self.attack_single_run(x_to_fool, y_to_fool)
+                        ) = self.attack_single_run(x_to_fool, y_to_fool, counter)
                         ind_curr = (acc_curr == 0).nonzero().squeeze()
                         #
                         acc[ind_to_fool[ind_curr]] = 0
                         # adv[ind_to_fool[ind_curr]] = adv_curr[ind_curr].clone()
                         adv[ind_to_fool] = adv_curr.clone()
+                        adv1 = adv_curr.clone()
+                        adv1 = self.scaler.inverse_transform(adv_curr)
+                        adv1 = fix_types(x_in_unscaled[ind_to_fool], adv1, self.constraints.feature_types)
+                        adv1 = fix_immutable(x_in_unscaled[ind_to_fool], adv1, self.constraints.mutable_features)
+
+                        adv1 = fix_equality_constraints(self.constraints, adv1)
+                        adv1 = to_numpy_number(adv1)[:, np.newaxis, :]
+                        x_clean1 = to_numpy_number(x_in_unscaled[ind_to_fool]).astype(np.float32)
+                        (
+                            success_attack_indices,
+                            success_adversarials_indices,
+                        ) = self.objective_calculator.get_successful_attacks_indexes(
+                            x_clean1, y[ind_to_fool].cpu(), adv1, max_inputs=1
+                        )
+                        print(f"IDX: Success {len(success_attack_indices)}")
+                        adv[ind_to_fool[success_attack_indices]] = self.scaler.transform(torch.tensor(adv1[:, 0, :]))[success_attack_indices]
+                        ind_to_fool = np.setdiff1d(ind_to_fool, ind_to_fool[success_attack_indices])
                         if self.verbose:
                             print(
                                 "restart {} - robust accuracy: {:.2%} - cum. time: {:.1f} s".format(

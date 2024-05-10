@@ -77,7 +77,7 @@ class LowProFool(Attack):
         lambda_: float = 8.5,
         seed: int = 0,
         model_name= None,
-        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_end: bool = False,
         verbose: bool = False,
         **kwargs
     ) -> None:
@@ -89,7 +89,7 @@ class LowProFool(Attack):
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.alpha = alpha
         self.lambda_ = lambda_
-        self.eps = eps
+        self.eps = eps - eps*0.05
         self.seed = seed
         self.model_name = model_name
 
