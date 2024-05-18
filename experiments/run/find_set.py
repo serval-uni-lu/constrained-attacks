@@ -28,11 +28,31 @@ from mlc.metrics.metric_factory import create_metric
 from mlc.dataloaders import get_custom_dataloader
 import pandas as pd
 import itertools
-
+from tqdm import tqdm
 # Torch config to avoid crash on HPC
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 CUSTOM_DATALOADERS = ["default", "subset", "madry", "dist"]
+
+
+def compare_two_adv(
+    x1_not_clean,
+    x2_not_clean,
+):
+    intersection = np.intersect1d(x1_not_clean, x2_not_clean)
+    return len(x1_not_clean), len(x2_not_clean), len(intersection)
+
+
+def compare_three_adv(
+    a,
+    b,
+    c
+):
+    ab = np.intersect1d(a, b)
+    ac = np.intersect1d(a, c)
+    bc = np.intersect1d(b, c)
+    abc = np.intersect1d(ab, c)
+    return len(a), len(b), len(c), len(ab), len(ac), len(bc), len(abc)
 
 
 def run(
@@ -68,48 +88,14 @@ def run(
     n_gen = 100
     n_offsprings = 100
     seed = 0
-    x_1_path = get_adv_path(
-        dataset_name,
-        model_name,
-        custom_dataloader,
-        constraints,
-        attacks[0],
-        subset,
-        eps,
-        steps,
-        n_gen,
-        n_offsprings,
-        seed,
-    )
-    x_2_path = get_adv_path(
-        dataset_name,
-        model_name,
-        custom_dataloader,
-        constraints,
-        attacks[1],
-        subset,
-        eps,
-        steps,
-        n_gen,
-        n_offsprings,
-        seed,
-    )
+
     if not os.path.exists(weight_path):
         print(
             f"{dataset_name}, {model_name}, {custom_dataloader}: {weight_path} Not found!"
         )
         return {}
-    if not os.path.exists(x_1_path):
-        print(
-            f"{dataset_name}, {model_name}, {custom_dataloader}: {x_1_path} Not found!"
-        )
-        return {}
-    if not os.path.exists(x_2_path):
-        print(
-            f"{dataset_name}, {model_name}, {custom_dataloader}: {x_2_path} Not found!"
-        )
-        return {}
 
+    attacks = attacks.copy()
     model = model_class.load_class(
         weight_path,
         x_metadata=metadata,
@@ -127,50 +113,102 @@ def run(
         subset=subset,
     )
 
-    # By construction the cache only contains adverarial that respected constraints and distance,
-    # Hence we just have to check for the model prediction
+    x_adv_clean_idx = np.where(model.predict(x_clean.values) != y_clean)[0]
 
-    y_clean_success_idx = np.where(model.predict(x_clean.values) != y_clean)[0]
+    advs_idx = []
+    for attack in attacks:
+        if (dataset_name == "malware") and (model_name in ["vime", "tabtransformer", "tabnet"]):
+            advs_idx.append(np.array([]))
+            continue
 
-   
+        adv_idx_seed = []
+        for seed in range(5):
 
-    x_1 = torch.load(x_1_path)
-    x_2 = torch.load(x_2_path)
+            if (attack in ["ucs"]) and seed > 0:
+                continue
 
-    y_1_success_idx = np.where(model.predict(x_1) != y_clean)[0]
-    y_2_success_idx = np.where(model.predict(x_2) != y_clean)[0]
+            a_path =get_adv_path(
+                dataset_name,
+                model_name,
+                custom_dataloader,
+                constraints,
+                attack,
+                subset,
+                eps,
+                steps,
+                n_gen,
+                n_offsprings,
+                seed,
+            )
+            if not os.path.exists(a_path):
+                raise FileNotFoundError(
+                    f"{dataset_name}, {model_name}, {custom_dataloader}: {a_path} Not found!"
+                )
+            else:
+                adv = torch.load(a_path)
+                # By construction the cache only contains adverarial that respected constraints and distance,
+                # Hence we just have to check for the model prediction
+                # print(f"HELLO {attack}")
+                adv_idx = np.where(model.predict(adv) != y_clean)[0]
+                # print(adv_idx)
+                adv_idx_seed.append(adv_idx)
 
-    print(len(y_clean_success_idx))
-    print(len(y_1_success_idx))
-    print(len(y_2_success_idx))
+        if len(adv_idx_seed) > 0:
+            adv_idx = np.unique(np.concatenate(adv_idx_seed))
+            # print(len(adv_idx))
+            assert np.isin(x_adv_clean_idx, adv_idx).all()
+            adv_idx_not_clean = np.setdiff1d(adv_idx, x_adv_clean_idx)
+            advs_idx.append(adv_idx_not_clean)
 
-    # print(np.isin(y_clean_success_idx, y_1_success_idx).mean())
-    assert np.isin(y_clean_success_idx, y_1_success_idx).all()
-    assert np.isin(y_clean_success_idx, y_2_success_idx).all()
+        else:
+            print(f"Empty for {attack}")
 
-    y1_not_clean = np.setdiff1d(
-        y_1_success_idx, y_clean_success_idx
-    )
-    y2_not_clean = np.setdiff1d(
-        y_2_success_idx, y_clean_success_idx
-        
-    )
-
-    intersection = np.intersect1d(
-        y1_not_clean, y2_not_clean
-    )
-
-    out = {
+    out_template = {
         "dataset": dataset_name,
         "model": model_name,
         "training": custom_dataloader,
-        attacks[0]: len(y1_not_clean),
-        "intersection": len(intersection),
-        attacks[1]: len(y2_not_clean),
     }
+    # print(f"FUCCCCCK {len(advs_idx)}")
 
-    return out
+    out = []
+    out2 = []
+    for attack_i1, attack_i2 in itertools.combinations_with_replacement(range(len(attacks)), 2):
+        out_local = out_template.copy()
+        out_local["attack_1_name"] = attacks[attack_i1]
+        out_local["attack_2_name"] = attacks[attack_i2]
+        value_1, value_2, intersection = compare_two_adv(
+            advs_idx[attack_i1], advs_idx[attack_i2]
+        )
+        out_local["attack_1_count"] = value_1
+        out_local["attack_2_count"] = value_2
+        out_local["intersection"] = intersection
+        out.append(out_local)
 
+    for attack_i1, attack_i2, attack_i3 in itertools.combinations_with_replacement(range(len(attacks)), 3):
+        out_local = out_template.copy()
+        out_local["attack_1_name"] = attacks[attack_i1]
+        out_local["attack_2_name"] = attacks[attack_i2]
+        out_local["attack_3_name"] = attacks[attack_i3]
+        a, b, c, ab, ac, bc, abc = compare_three_adv(
+            advs_idx[attack_i1],
+            advs_idx[attack_i2],
+            advs_idx[attack_i3]
+        )
+        computed = {
+            "a": a,
+            "b": b,
+            "c": c,
+            "ab": ab,
+            "ac": ac,
+            "bc": bc,
+            "abc": abc
+        }
+        out_local = {**out_local, **computed}
+        out2.append(out_local)
+    
+    print(len(out))
+
+    return out, out2
 
 def get_adv_path(
     dataset_name: str,
@@ -186,8 +224,13 @@ def get_adv_path(
     seed: int,
 ) -> str:
     adv_name = f"{dataset_name}_{model_name}_{model_training}_{constraints}_{attack_name}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}.pt"
-    os.makedirs("./cache", exist_ok=True)
-    adv_path = os.path.join("./cache", adv_name)
+    prefix = "cache"
+    # if (dataset == "malware") and (attack_name == "moeva"):
+    #     prefix = "cache.kdd24"
+    if (attack_name == "pgdl2ijcai") or (attack_name == "lowprofool") or (attack_name == "moeva") or (attack_name == "ucs"):
+        prefix = "cache_bis/cache.bk20240425-ecai24"
+    # os.makedirs("./cache", exist_ok=True)
+    adv_path = os.path.join(f"./{prefix}", adv_name)
     return adv_path
 
 
@@ -234,21 +277,24 @@ def get_x_attack(
 
 
 if __name__ == "__main__":
-    datasets = ["lcld_v2_iid"]
+    datasets = ["url", "lcld_v2_iid", "wids",  "ctu_13_neris"]
     models = ["tabtransformer", "stg", "tabnet", "torchrln", "vime"]
     # models = ["tabtransformer"]
     dataloaders = ["default"]
     constraints = 1
     filter_class = 1
-    attacks = ["pgdl2", "apgd"]
+    attacks = ["apgd3","apgd3-nrep", "apgd3-nini", "apgd3-nran", "apgd3-nada"]
+    attacks = ["apgd3","pgdl2ijcai", "lowprofool",]
+    attacks = ["apgd3","moeva", "ucs",]
     metric_list = []
-    for dataset, model, dataloader in itertools.product(
+    metric_list3 = []
+    for dataset, model, dataloader in tqdm(itertools.product(
         datasets, models, dataloaders
-    ):
+    ), total=len(datasets) * len( models)* len( dataloaders)):
         subset = 1000 if dataset != "malware" else 100
-        eps = 0.5 if dataset != "malware" else 5
+        eps = 0.5 if dataset != "malware" else "5.0"
 
-        metric_dict = run(
+        metric_dict, metric_dict3 = run(
             dataset,
             model,
             dataloader,
@@ -258,6 +304,12 @@ if __name__ == "__main__":
             eps,
             attacks,
         )
-        metric_list.append(metric_dict)
+        metric_list.extend(metric_dict)
+        metric_list3.extend(metric_dict3)
     df = pd.DataFrame(metric_list)
-    df.to_csv(f"intersection_apgd_{attacks[0]}_{attacks[1]}.csv")
+    suffix = "cagpd3_ablation"
+    suffix = "gradient"
+    suffix = "search"
+    df.to_csv(f"intersection_{suffix}.csv")
+    df = pd.DataFrame(metric_list3)
+    df.to_csv(f"intersection3_{suffix}.csv")

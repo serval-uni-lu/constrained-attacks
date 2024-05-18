@@ -89,9 +89,10 @@ if __name__ == "__main__":
     # parser.add_argument("--custom_dataloaders", type=str, default="default")
     # args = parser.parse_args()
     
-    datasets = ["url", "lcld_v2_iid", "ctu_13_neris", "malware", "wids"]
-    models = ["tabnet"]
-    dataloaders = ["default", "madry"]
+    # datasets = ["url", "lcld_v2_iid", "ctu_13_neris", "malware", "wids"]
+    datasets = ["lcld_v2_iid", "url","wids"]
+    models = ["tabtransformer", "stg", "tabnet", "torchrln", "vime"]
+    dataloaders = ["default"]
     metric_list = []
     for dataset, model, dataloader in itertools.product(datasets, models, dataloaders):
         metric_dict = run(
@@ -101,6 +102,6 @@ if __name__ == "__main__":
         )
         metric_list.append(metric_dict)
     df = pd.DataFrame(metric_list)
-    df.to_csv("performance_summary.csv")
+    df.to_csv("performance_summary_newbug2.csv")
     
     

@@ -38,12 +38,9 @@ from constrained_attacks.attacks.cta.caa import (
     ConstrainedAutoAttack,
     ConstrainedAutoAttack2,
     ConstrainedAutoAttack3,
-    ConstrainedAutoAttack4,
     ConstrainedMultiAttack,
-    ConstrainedAutoAttack5
 )
 from constrained_attacks.attacks.cta.capgd import CAPGD
-from constrained_attacks.attacks.cta.capgd2 import CAPGD2
 from constrained_attacks.attacks.cta.cfab import CFAB
 from constrained_attacks.attacks.cta.cpgdl2 import CPGDL2
 from constrained_attacks.attacks.moeva.moeva import Moeva2
@@ -106,23 +103,8 @@ def run_experiment(
 
     if ATTACKS is None:
         ATTACKS = {
-            "pgdl2ijcai": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False, "fix_constraints_ijcai": True}),
-            "pgdl2org": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False}),
-            "pgdl2rsae": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": True}),
-            "pgdl2nrsnae": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": False}),
-            "pgdl2": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": True}),
+            "pgdl2": (CPGDL2, {"steps": steps}),
             "apgd": (CAPGD, {"steps": steps}),
-            "apgd2": (CAPGD2, {"steps": steps, "n_restarts": 2}),
-            "apgd2-nrep": (CAPGD2, {"steps": steps, "n_restarts": 2, "fix_equality_constraints_iter": False}),
-            "apgd2-nini": (CAPGD2, {"steps": steps, "n_restarts": 1, "init_start": False}),
-            "apgd2-nran": (CAPGD2, {"steps": steps, "n_restarts": 1, "random_start": False}),
-            "apgd2-nbes": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False}),
-            "apgd2-nada": (CAPGD2, {"steps": steps, "n_restarts": 2, "adaptive_eps": False}),
-            "apgd3": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False}),
-            "apgd3-nrep": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False, "fix_equality_constraints_iter": False}),
-            "apgd3-nini": (CAPGD2, {"steps": steps, "n_restarts": 1, "best_restart": False, "init_start": False}),
-            "apgd3-nran": (CAPGD2, {"steps": steps, "n_restarts": 1, "best_restart": False, "random_start": False}),
-            "apgd3-nada": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False, "adaptive_eps": False}),
             "fab": (CFAB, {}),
             "moeva": (
                 Moeva2,
@@ -158,26 +140,6 @@ def run_experiment(
                     "steps": steps,
                 },
             ),
-            "caa4": (
-                ConstrainedAutoAttack4,
-                {
-                    "constraints_eval": constraints_eval,
-                    "n_jobs": n_jobs,
-                    "steps": steps,
-                    "n_gen": args.get("n_gen"),
-                    "n_offsprings": args.get("n_offsprings"),
-                },
-            ),
-            "caa5": (
-                ConstrainedAutoAttack5,
-                {
-                    "constraints_eval": constraints_eval,
-                    "n_jobs": n_jobs,
-                    "steps": steps,
-                    "n_gen": args.get("n_gen"),
-                    "n_offsprings": args.get("n_offsprings"),
-                },
-            ),
             "lowprofool": (
                 LowProFool,
                 {
@@ -191,14 +153,6 @@ def run_experiment(
                 {
                     "fun_distance_preprocess": scaler.transform,
                     "model_name": model.name
-                }
-            ), 
-            "bfs": (
-                UCS,
-                {
-                    "fun_distance_preprocess": scaler.transform,
-                    "model_name": model.name,
-                    "epsilon": 1000000
                 }
             )
         }
@@ -214,14 +168,14 @@ def run_experiment(
         **attack_class[1],
     }
 
-    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs", "bfs"]) else model
+    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs"]) else model
 
     attack = attack_class[0](
         constraints=constraints,
         scaler=scaler,
         model=model_attack,
         fix_equality_constraints_end=True,
-        # fix_equality_constraints_iter=True,
+        fix_equality_constraints_iter=True,
         model_objective=model.predict_proba,
         **attack_args,
     )
@@ -271,7 +225,7 @@ def run_experiment(
         #     print(attack.attacks[0].__name__)
 
         auto_attack_metrics = attack
-        if isinstance(attack.attacks[0], ConstrainedAutoAttack3) or isinstance(attack.attacks[0], ConstrainedAutoAttack4):
+        if isinstance(attack.attacks[0], ConstrainedAutoAttack3):
             auto_attack_metrics = attack.attacks[0]._autoattack
             experiment.log_metric(
                 "attack_constraints_rate_steps_inner",
