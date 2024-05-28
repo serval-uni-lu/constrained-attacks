@@ -73,6 +73,9 @@ class CAPGD2(Attack):
         fix_equality_constraints_end: bool = True,
         fix_equality_constraints_iter: bool = True,
         adaptive_eps: bool = True,
+        random_start: bool = True,
+        init_start: bool = True,
+        best_restart: bool = True,
         eps_margin: float = 0.05,
         verbose: bool = False,
     ) -> None:
@@ -92,6 +95,9 @@ class CAPGD2(Attack):
         self.fix_equality_constraints_end = fix_equality_constraints_end
         self.fix_equality_constraints_iter = fix_equality_constraints_iter
         self.adaptive_eps = adaptive_eps
+        self.random_start = random_start
+        self.init_start = init_start
+        self.best_restart = best_restart
 
         self.objective_calculator: Optional[ObjectiveCalculator] = None
         self.constraints_executor: Optional[ConstraintsExecutor] = None
@@ -180,7 +186,11 @@ class CAPGD2(Attack):
             )
 
         # -- Random initialization
-        if (self.n_restarts != 1) and (n_restart != 0):
+        random_start = (self.n_restarts != 1) and (n_restart != 0)
+        random_start = random_start or (not self.init_start)
+        random_start = random_start and (self.random_start)
+
+        if (random_start):
             print("Random")
             if self.norm == "Linf":
                 t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
@@ -482,7 +492,7 @@ class CAPGD2(Attack):
 
                 counter3 += 1
 
-                if counter3 == k:
+                if (counter3 == k) and self.adaptive_eps:
                     fl_oscillation = self.check_oscillation(
                         loss_steps.detach().cpu().numpy(),
                         i,
@@ -504,14 +514,16 @@ class CAPGD2(Attack):
 
                         fl_oscillation = np.where(fl_oscillation)
 
-                        x_adv[fl_oscillation] = x_best[fl_oscillation].clone()
-                        grad[fl_oscillation] = grad_best[
-                            fl_oscillation
-                        ].clone()
+                        if self.best_restart:
+                            x_adv[fl_oscillation] = x_best[fl_oscillation].clone()
+                            grad[fl_oscillation] = grad_best[
+                                fl_oscillation
+                            ].clone()
 
                     counter3 = 0
                     k = np.maximum(k - self.size_decr, self.steps_min)
 
+        # We use x_best_adv as adversarial
         return x_best, acc, loss_best, x_best_adv
 
     def get_logits(self, inputs, labels=None, *args, **kwargs):

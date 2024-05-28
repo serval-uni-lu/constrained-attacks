@@ -87,6 +87,9 @@ class TricksterModel(object):
     def eval(self):
         self.model.eval()
 
+    def train(self):
+        self.model.train()
+
 
 class UCS(Attack):
 
@@ -97,11 +100,12 @@ class UCS(Attack):
         model: Model,
         steps: int = 20000,
         seed: int = 0,
-        fix_equality_constraints_end: bool = True,
+        fix_equality_constraints_end: bool = False,
         verbose: bool = False,
         fun_distance_preprocess=lambda x: x,
         n_bins=150,
         model_name=None,
+        epsilon = 1,
         **kwargs,
     ) -> None:
         super().__init__("UCS", model)
@@ -118,6 +122,7 @@ class UCS(Attack):
         self.feature_types = self.constraints.feature_types
         self.feature_min = np.array(self.constraints.lower_bounds).astype(np.float_)
         self.feature_max = np.array(self.constraints.upper_bounds).astype(np.float_)
+        self.epsilon = epsilon
 
         # model_predict_probal = model.predict_proba
         # model = model.wrapper_model
@@ -160,8 +165,8 @@ class UCS(Attack):
 
         # print(f"Length constraints {len(self.constraints.relation_constraints)}")
 
-        print(adv.shape)
-        print(x.shape)
+        # print(adv.shape)
+        # print(x.shape)
         if self.fix_equality_constraints_end:
             adv = fix_equality_constraints(self.constraints, adv)
 
@@ -191,7 +196,7 @@ class UCS(Attack):
         
 
         bin_level = 150
-        epsilon = 1
+        epsilon = self.epsilon
 
         expansion_specs, transformable_feature_idxs = get_expansions_specs(
             self.mutable_mask,
@@ -248,7 +253,7 @@ class UCS(Attack):
         #     print(f"Example {i}")
         #     x_out.append(self.perturb_one(x_in[i], y_in[i]))
         
-        x_out = Parallel(n_jobs=20)(delayed(self.perturb_one)(
+        x_out = Parallel(n_jobs=1)(delayed(self.perturb_one)(
             x_in[i].reshape(1, -1), y_in[i].reshape(-1,1)
         ) for i in tqdm(range(len(x_in))))
         

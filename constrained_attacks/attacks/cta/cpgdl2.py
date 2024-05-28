@@ -51,20 +51,22 @@ class CPGDL2(Attack):
         model,
         model_objective,
         eps=1.0,
-        alpha=0.2,
+        alpha=0.0, # unused
         steps=10,
         random_start=True,
         eps_for_division=1e-10,
         fix_equality_constraints_end: bool = True,
         fix_equality_constraints_iter: bool = True,
         adaptive_eps: bool = False,
-        eps_margin=0.01,
+        eps_margin=0.05,
         seed: int = 0,
+        fix_constraints_ijcai=False,
         **kwargs,
     ):
         super().__init__("PGDL2", model)
+        self.eps_original = eps
         self.eps = eps - eps * eps_margin
-        self.alpha = alpha
+        self.alpha = self.eps_original * 0.4
         self.steps = steps
         self.random_start = random_start
         self.eps_for_division = eps_for_division
@@ -78,6 +80,7 @@ class CPGDL2(Attack):
 
         self.objective_calculator = None
         self.constraints_executor = None
+        self.fix_constraints_ijcai = fix_constraints_ijcai
 
         if self.constraints.relation_constraints is not None:
             self.objective_calculator = ObjectiveCalculator(
@@ -126,7 +129,7 @@ class CPGDL2(Attack):
         adv = fix_immutable(x_in, adv, self.constraints.mutable_features)
 
         if self.fix_equality_constraints_end:
-            adv = fix_equality_constraints(self.constraints, adv)
+            adv = fix_equality_constraints(self.constraints, adv, self.fix_constraints_ijcai)
 
         return adv
 
@@ -198,7 +201,7 @@ class CPGDL2(Attack):
                 current_power = torch.tensor(
                     step // iteration_per_step + 1
                 ).float()
-                local_alpha = self.eps * (
+                local_alpha = self.eps_original * (
                     1 / torch.float_power(10.0, current_power)
                 )
                 print(local_alpha)
@@ -224,6 +227,7 @@ class CPGDL2(Attack):
                     fix_equality_constraints(
                         self.constraints,
                         self.scaler.inverse_transform(adv_images),
+                        self.fix_constraints_ijcai
                     )
                 )
 

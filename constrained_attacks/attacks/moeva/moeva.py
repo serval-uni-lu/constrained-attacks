@@ -28,6 +28,8 @@ from mlc.constraints.constraints import Constraints
 from mlc.utils import to_numpy_number, to_torch_number
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 
+from mlc.models.tabsurvey.vime import VIME
+
 
 def tf_lof_off():
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -169,7 +171,7 @@ class Moeva2:
             problem,
             algorithm,
             termination,
-            verbose=1,
+            verbose=0,
             seed=self.seed,
             callback=callback,
             save_history=False,
@@ -233,7 +235,15 @@ class Moeva2:
             else joblib.cpu_count(),
             batch_size=batch_size,
         )
-        self.n_jobs = 12
+        self.n_jobs = 32
+        if (x.shape[-1] == 24222):
+            self.n_jobs = 16
+            print(type(self.model))
+            if isinstance(self.model, VIME):
+                self.n_jobs = 8
+
+        
+        print(f"N_JOBS MOEVA {self.n_jobs}")
 
         if isinstance(y, int):
             y = np.repeat(y, x.shape[0])

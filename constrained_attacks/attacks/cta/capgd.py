@@ -71,7 +71,7 @@ class CAPGD(Attack):
         rho: float = 0.75,
         fix_equality_constraints_end: bool = True,
         fix_equality_constraints_iter: bool = True,
-        eps_margin: float = 0.01,
+        eps_margin: float = 0.05,
         verbose: bool = False,
     ) -> None:
         super().__init__("APGD", model)
@@ -175,6 +175,8 @@ class CAPGD(Attack):
                 self.steps_min,
                 self.size_decr,
             )
+
+        # -- Random initialization
 
         if self.norm == "Linf":
             t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
@@ -408,6 +410,14 @@ class CAPGD(Attack):
 
                 x_adv = x_adv_1 + 0.0
 
+            if self.fix_equality_constraints_iter:
+                print(f"fixing equality constraints {x_best_adv.shape}")
+                x_adv = self.scaler.transform(
+                    fix_equality_constraints(
+                        self.constraints,
+                        self.scaler.inverse_transform(x_adv),
+                    )
+                )
             # -- get gradient
             x_adv.requires_grad_()
             grad = torch.zeros_like(x)
@@ -439,13 +449,13 @@ class CAPGD(Attack):
                 x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
 
-            if self.fix_equality_constraints_iter:
-                x_best_adv = self.scaler.transform(
-                    fix_equality_constraints(
-                        self.constraints,
-                        self.scaler.inverse_transform(x_best_adv),
-                    )
-                )
+            
+                # x_best_adv = self.scaler.transform(
+                #     fix_equality_constraints(
+                #         self.constraints,
+                #         self.scaler.inverse_transform(x_best_adv),
+                #     )
+                # )
             if self.verbose:
                 print(
                     "iteration: {} - Best loss: {:.6f}".format(
@@ -566,7 +576,8 @@ class CAPGD(Attack):
                         ind_curr = (acc_curr == 0).nonzero().squeeze()
                         #
                         acc[ind_to_fool[ind_curr]] = 0
-                        adv[ind_to_fool[ind_curr]] = adv_curr[ind_curr].clone()
+                        # adv[ind_to_fool[ind_curr]] = adv_curr[ind_curr].clone()
+                        adv[ind_to_fool] = adv_curr.clone()
                         if self.verbose:
                             print(
                                 "restart {} - robust accuracy: {:.2%} - cum. time: {:.1f} s".format(
