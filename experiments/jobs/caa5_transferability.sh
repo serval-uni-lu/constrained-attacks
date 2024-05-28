@@ -35,7 +35,7 @@ do
                             list_target_path="../models/mlc/best_models/${model}_${DATASET}_default.model"
                         fi
                     done
-                    eval "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --model_name_target $model_taget_name --custom_path_target $list_target_path --seed=$SEED --project_name caa5_transferability_v2_${DATASET} --load_adv 1 --save_adv 0 --save_examples 0"
+                    sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE ${SCENARIO} --filter_class=$FILTER_CLASS --model_name_target $model_taget_name --custom_path_target $list_target_path --seed=$SEED --project_name caa5_transferability_v2_${DATASET} --load_adv 1 --save_adv 0 --save_examples 0"
                 done
             done
         done

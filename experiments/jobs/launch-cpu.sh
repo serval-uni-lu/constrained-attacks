@@ -3,9 +3,9 @@
 #SBATCH -o out/%x_%j.out
 #SBATCH -N 1
 #SBATCH --ntasks-per-node 1
-#SBATCH -c 128
+#SBATCH -c 32
 #SBATCH -p batch
-#SBATCH --time=0-06:00:00
+#SBATCH --time=0-00:40:00
 #SBATCH --qos=normal
 #SBATCH --mail-type=all
 #SBATCH --mail-user=thibault.simonetto@uni.lu

@@ -18,7 +18,7 @@ for SEED in 0 1 2 3 4
 # for SEED in 0
 do
     # for DATASET in lcld_v2_iid url ctu_13_neris malware wids
-    for DATASET in url
+    for DATASET in ctu_13_neris
     do
         if [[ "$DATASET" == "malware" ]]; then
             MAX_EPS=5

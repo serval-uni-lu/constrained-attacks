@@ -1,6 +1,6 @@
 for SEED in 0 1 2 3 4
 do
-    for DATASET in malware
+    for DATASET in ctu_13_neris
     do
         for MODEL in "tabtransformer" "torchrln" "vime" "stg" "tabnet"
         do

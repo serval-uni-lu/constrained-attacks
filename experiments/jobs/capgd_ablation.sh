@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
-DEVICES=-1
+DEVICES=0
 BATCH_SIZE=1024
-ATTACK="apgd3"
+ATTACK="apgd2-nrep+apgd2-nini+apgd2-nran+apgd2-nbes+apgd2-nada"
 FILTER_CLASS=1
 DEVICE="cpu"
 SEED="${SEED:-0}"
@@ -11,7 +11,7 @@ n_gen=100
 n_offsprings=100
 STEPS=10
 
-for SEED in 0 1 2 3 4
+for SEED in 3 4
 do
     # for DATASET in lcld_v2_iid url ctu_13_neris malware wids
     for DATASET in lcld_v2_iid url ctu_13_neris wids
@@ -24,14 +24,14 @@ do
             SUBSET=1000
         fi
 
-        for MODEL in vime tabnet stg torchrln tabtransformer
+        for MODEL in vime stg torchrln tabtransformer tabnet
         do
             for MODEL_PATH in "../models/mlc/best_models/${MODEL}_${DATASET}_default.model"
             do
                 for SCENARIO in "--constraints_access"
                 do
                     # echo sbatch ./experiments/jobs/launch-cpu.sh
-                    sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings" --project_name apgd3_v3_${DATASET} --save_adv 1 --steps=$STEPS # scenario_AB_${DATASET}
+                    sbatch ./experiments/jobs/launch-cpu.sh "CUDA_VISIBLE_DEVICES=$DEVICES python experiments/run/scenarioA.py --dataset_name $DATASET --model_name $MODEL --custom_path $MODEL_PATH --attacks_name $ATTACK --max_eps $MAX_EPS --subset $SUBSET --batch_size $BATCH_SIZE --device $DEVICE --filter_class=$FILTER_CLASS ${SCENARIO} --seed=$SEED --n_gen $n_gen --n_offsprings $n_offsprings" --project_name capgd_ablation_bis${DATASET} --save_adv 1 --steps=$STEPS # scenario_AB_${DATASET}
                 done
             done
         done
