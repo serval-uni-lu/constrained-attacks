@@ -1,6 +1,7 @@
+import itertools
 import json
-from datetime import datetime
 import os
+from datetime import datetime
 from typing import Dict, List
 
 import comet_ml
@@ -21,8 +22,8 @@ def get_xp_data(xp, scenario_name):
         **{e["name"]: e["valueCurrent"] for e in xp.get_parameters_summary()},
         **{e["name"]: e["valueCurrent"] for e in xp.get_metrics_summary()},
     }
-    if len(out.keys()) == 1:
-        print(xp.get_name())
+    # if len(out.keys()) == 1:
+    #     print(xp.get_name())
     return out
 
 
@@ -65,7 +66,7 @@ def file_import(scenarios: Dict[str, List[str]]):
                 for pos_json in os.listdir(p)
                 if pos_json.endswith(".json")
             ]
-            print(json_files)
+            # print(json_files)
             out.extend(
                 Parallel(n_jobs=-1)(
                     delayed(get_xp_data_json)(
@@ -74,7 +75,7 @@ def file_import(scenarios: Dict[str, List[str]]):
                     for relative_path in tqdm(json_files)
                 )
             )
-    print(len(out))
+    # print(len(out))
     return out
 
 
@@ -146,13 +147,175 @@ TO_GET_OLD = {
     ],
 }
 
+TO_GET_CORRECTED = {
+    "AB": [
+        "./data/xp/constrained-robustbench/gradient_attacks_lcld_v2_iid",
+        "./data/xp/constrained-robustbench/gradient_attacks_url",
+        "./data/xp/constrained-robustbench/gradient_attacks_wids",
+        "./data/xp/constrained-robustbench/gradient_attacks_ctu_13_neris",
+    ],
+}
+
+TO_GET_LAST = {
+    "AB": [
+        f"./data/xp/currated/{e}"
+        for e in [
+            "all_wids",
+            "caa4_ctu_13_neris",
+            "caa4_lcld_v2_iid",
+            "caa4_url",
+            "gradient_attacks_ctu_13_neris",
+            "gradient_attacks_lcld_v2_iid",
+            "gradient_attacks_url",
+            "gradient_caa4_malware",
+            "moeva2_ctu_13_neris",
+            "moeva2_malware",
+            "moeva2_url",
+            # "scenario_AB_corrected_lcld_v2_iid_v9",
+            "sota_ctu_13_neris",
+            "sota_lcld_v2_iid",
+            "sota_malware",
+            "sota_url",
+            "sota_wids",
+            "ucs",
+        ]
+    ],
+    "C": [
+        f"./data/xp/currated/{e}"
+        for e in [
+            "transferability_ctu_13_neris_v1",
+            "transferability_lcld_v2_iid_v1",
+            "transferability_malware_v1",
+            "transferability_url_v1",
+            "transferability_wids_v1",
+        ]
+    ],
+    "D": [
+        f"data/xp/constrained-robustbench/{e}"
+        for e in [
+            "scenario_D_lcld_v2_iid",
+            "scenario_D_ctu_13_neris",
+            "scenario_D_url",
+            "scenario_D_wids",
+            "scenario_D_malware",
+        ]
+    ],
+    "E": [
+        f"data/xp/constrained-robustbench/{e}"
+        for e in [
+            "scenario_E_lcld_v2_iid",
+            "scenario_E_ctu_13_neris",
+            "scenario_E_url",
+            "scenario_E_wids",
+            "scenario_E_malware",
+        ]
+    ],
+    "budget": [
+        f"data/xp/constrained-robustbench/{e}"
+        for e in [
+            "eps_lcld_v2_iid",
+            "eps_ctu_13_neris",
+            "eps_url",
+            "eps_wids",
+            "eps_malware",
+        ]
+    ],
+    "ablation": [
+        f"data/xp/constrained-robustbench/{e}"
+        for e in [
+            "capgd_ablation_lcld_v2_iid",
+            "capgd_ablation_url",
+            "capgd_ablation_wids",
+            "capgd_ablation_ctu_13_neris",
+            "capgd_ablation_malware",
+        ]
+    ],
+}
+
+
+TO_GET_NEURIPS = {
+    "default": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["sota", "moeva2", "apgd3_v3", "caa5_v3", "caa5_defense_v3"],
+        )
+    ],
+    "capgd_ablation": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["apgd3_ablation_v3"],
+        )
+    ],
+    "caa_eps": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["caa5_eps_v3"],
+        )
+    ],
+    "caa_iter_search": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["caa5_iter_search_v3"],
+        )
+    ],
+    "caa_iter_gradient": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["caa5_iter_gradient_v3"],
+        )
+    ],
+    "caa_transferability": [
+        f"./data/xp/neurips24/{folder}_{ds}"
+        for ds, folder in itertools.product(
+            [
+                "ctu_13_neris",
+                "lcld_v2_iid",
+                "url",
+                "wids",
+            ],
+            ["caa5_transferability_v3"],
+        )
+    ],
+}
+
 
 def run() -> None:
     path = f"./data/xp_results/data_{generate_time_name()}.json"
     out = []
-    out.extend(download_data(TO_GET_OLD))
-    out.extend(download_data(TO_GET))
-    out.extend(file_import(TO_GET_JSON))
+    # out.extend(download_data(TO_GET_OLD))
+    # out.extend(download_data(TO_GET))
+    # out.extend(file_import(TO_GET_JSON))
+    out.extend(file_import(TO_GET_NEURIPS))
 
     out = {
         "download_time": generate_time_name(),
@@ -160,6 +323,12 @@ def run() -> None:
     }
     with open(path, "w") as f:
         json.dump(out, f)
+
+    path_latest = "./data/xp_results/data_latest.json"
+    with open(path_latest, "w") as f:
+        json.dump(out, f)
+
+    print("Path: ", path)
 
 
 if __name__ == "__main__":

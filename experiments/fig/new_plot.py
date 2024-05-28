@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -8,8 +8,8 @@ from experiments.fig.beautify_latex import beautify_latex
 
 from .beautify_data import beautify_col_name, data_order
 
-DATA_PATH = "./data_tmp.csv"
-OUT_ROOT = "./data/fig/new/"
+DATA_PATH = "./data_xp.csv"
+OUT_ROOT = "./data/fig/nips-20240513/"
 
 GROUP_BY = [
     "dataset",
@@ -24,6 +24,16 @@ GROUP_BY = [
     "is_constrained",
     "eps",
 ]
+
+
+def percent_format(x: float) -> str:
+    x = x * 100
+    return f"{x:.1f}"
+
+
+def percent_format_diff(x: float) -> str:
+    x = x * 100
+    return "\\tiny{$" + f"{x:+.1f}" + "$}"
 
 
 def load_data(path: str) -> pd.DataFrame:
@@ -62,38 +72,49 @@ def to_latex(
     in_col: str = "mean",
     out_col: str = "latex",
     auto_sem: bool = True,
-    custom_format: str = "{:.3f}",
+    sem: bool = True,
+    custom_format: Union[str, Callable] = percent_format,
 ) -> None:
-    if auto_sem:
-        no_sem = df["attack"] == "no_attack"
-    else:
+
+    if False:
         df["no_sem"] = True
         no_sem = df["no_sem"]
+    else:
+        if auto_sem:
+            no_sem = df["attack"] == "no_attack"
+        else:
+            df["no_sem"] = True
+            no_sem = df["no_sem"]
+
+    if isinstance(custom_format, str):
+        custom_format = custom_format.format
+
+    # df["bold"] = False
+    # bold = df["bold"].copy()
+    # df.drop(columns="bold", inplace=True, errors="ignore")
 
     df.loc[bold, out_col] = (
         "$\\mathbf{"
-        + df.loc[bold, in_col].map(custom_format.format)
+        + df.loc[bold, in_col].map(custom_format)
         + "}$"
         + "\\tiny{$\\mathbf{\\pm "
-        + (1.96 * df.loc[bold, "sem"]).map(custom_format.format)
+        + (1.96 * df.loc[bold, "sem"]).map(custom_format)
         + "}$}"
     )
     df.loc[~bold, out_col] = (
         "$"
-        + df.loc[~bold, in_col].map(custom_format.format)
+        + df.loc[~bold, in_col].map(custom_format)
         + "$"
         + "\\tiny{$\\pm "
-        + (1.96 * df.loc[~bold, "sem"]).map(custom_format.format)
+        + (1.96 * df.loc[~bold, "sem"]).map(custom_format)
         + "$}"
     )
     df.loc[no_sem & bold, out_col] = (
-        "$\\mathbf{"
-        + df.loc[no_sem & bold, in_col].map(custom_format.format)
-        + "}$"
+        "$\\mathbf{" + df.loc[no_sem & bold, in_col].map(custom_format) + "}$"
     )
 
     df.loc[no_sem & ~bold, out_col] = (
-        "$" + df.loc[no_sem & ~bold, in_col].map(custom_format.format) + "$"
+        "$" + df.loc[no_sem & ~bold, in_col].map(custom_format) + "$"
     )
 
 
@@ -112,13 +133,200 @@ def table_AB(
 
     # Sort
 
+    print(df.columns)
+
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    print(df.columns)
+    # Aggregate
+
+    df = (
+        df.groupby(
+            GROUP_BY,
+            sort=False,
+        )[metric]
+        .agg(["mean", "std", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+
+    if metric == "robust_acc":
+        to_latex_min_max(
+            df,
+            index,
+            bold_min=True,
+            bold_max=False,
+        )
+    elif metric == "attack_duration":
+        df["bold"] = False
+        df.loc[df["attack"].isin(["CAA", "MOEVA"]), "bold"] = (
+            (
+                df[
+                    df["attack"].isin(
+                        [
+                            "CAA",
+                            "MOEVA",
+                        ]
+                    )
+                ]
+            )
+            .groupby(index)["mean"]
+            .transform(lambda x: x == x.min())
+        )
+        to_latex(
+            df,
+            bold=df["bold"],
+            custom_format="{:.1f}",
+        )
+
+    # Pivot
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
+    return pivot
+
+
+def table_AB_ablation(
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> pd.DataFrame:
+    columns = ["attack"]
+    index = ["dataset", "target_model_arch"]
+
+    # Filter
+    df = df[df["scenario"].isin(["AB", "ablation"])]
+    df = df[df["is_constrained"]]
+    if not with_clean_attack:
+        df = df[df["attack"] != "no_attack"]
+    df = df[df["source_model_training"].isin(["default", "madry"])]
+
+    # Sort
+
+    print(df.columns)
+
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    print(df.columns)
+    # Aggregate
+
+    df = (
+        df.groupby(
+            GROUP_BY,
+            sort=False,
+        )[metric]
+        .agg(["mean", "std", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+
+    if metric == "robust_acc":
+        to_latex_min_max(
+            df,
+            index,
+            bold_min=True,
+            bold_max=False,
+        )
+    elif metric == "attack_duration":
+        df["bold"] = False
+        df.loc[df["attack"].isin(["CAA", "MOEVA"]), "bold"] = (
+            (
+                df[
+                    df["attack"].isin(
+                        [
+                            "CAA",
+                            "MOEVA",
+                        ]
+                    )
+                ]
+            )
+            .groupby(index)["mean"]
+            .transform(lambda x: x == x.min())
+        )
+        to_latex(
+            df,
+            bold=df["bold"],
+            custom_format="{:.1f}",
+        )
+
+    # Pivot
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
+    return pivot
+
+
+def table_budget(
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> pd.DataFrame:
+    columns = ["attack", "budget"]
+    index = ["dataset", "target_model_arch"]
+
+    # Filter
+
+    df = df[df["scenario"].isin(["AB", "budget"])]
+    df = df[(df["source_model_training"] == "default")]
+    df = df[df["is_constrained"]]
+    if not with_clean_attack:
+        df = df[df["attack"] != "no_attack"]
+    df = df[df["source_model_training"].isin(["default"])]
+
+    df["budget"] = 1
+    budget_two = ((df["n_iter"] == 100) | (df["n_iter"] == 10)) & (
+        df["scenario"] == "budget"
+    )
+    df.loc[budget_two, "budget"] = 2
+    budget_three = ((df["n_iter"] == 200) | (df["n_iter"] == 20)) & (
+        df["scenario"] == "budget"
+    )
+    df.loc[budget_three, "budget"] = 3
+    df = df[df["attack"].isin(["caa4", "apgd2", "moeva", "no_attack"])]
+
+    df["budget_order"] = df["budget"].copy()
+
+    print(df[["budget", "attack"]].value_counts())
+
+    # Sort
+
     df = df.sort_values(by=[f"{e}_order" for e in index + columns])
 
     # Aggregate
 
     df = (
         df.groupby(
-            GROUP_BY,
+            GROUP_BY + ["budget"],
             sort=False,
         )[metric]
         .agg(["mean", "std", "sem"])
@@ -809,15 +1017,293 @@ def filter_test(df: pd.DataFrame) -> pd.DataFrame:
     # df = df[
     #     df["target_model_arch"].isin(["tabtransformer", "torchrln", "vime"])
     # ]
+    # df = df[df["dataset"]!= "ctu_13_neris"]
+
     return df
+
+
+def transfer_bold(x):
+    # print(x)
+    # x["local_min"] = False
+    # x.loc[x["target_model_arch"] != [], "local_min"] = x[
+    # return x == x.min()
+    pass
+
+
+def minus_clean(x, ref):
+    filter_values = ref["dataset"] == x["dataset"]
+    filter_values &= ref["source_model_arch"] == x["target_model_arch"]
+    filter_values &= ref["source_model_training"] == x["target_model_training"]
+
+    value = ref[filter_values]["robust_acc"].values[0]
+
+    # print(value)
+    # print(x["robust_acc"])
+    # print( x["robust_acc"] - value)
+    return x["robust_acc"] - value
+
+
+def transferability(df: pd.DataFrame) -> None:
+    metric = "robust_acc"
+    # print(df[df["attack"]=="no_attack"].shape)
+
+    df_clean_perfs = (
+        df[df["attack"] == "no_attack"]
+        .groupby(["dataset", "source_model_training", "source_model_arch"])[
+            "robust_acc"
+        ]
+        .first()
+        .reset_index()
+    )
+
+    # print(df_clean.shape)
+
+    custom_filter = df["source_model_training"] == "dist"
+    custom_filter &= df["target_model_training"] == "default"
+    custom_filter &= df["scenario"].isin(["E"])
+    custom_filter &= df["is_constrained"]
+    custom_filter &= df["attack"] == "caa4"
+    print((df["source_model_training"] == "subset").sum())
+
+    # exit(0)
+    df = df[custom_filter]
+
+    df["robust_acc"] = df.apply(
+        lambda x: minus_clean(x, df_clean_perfs), axis=1
+    )
+
+    index = ["dataset", "target_model_arch"]
+    columns = ["source_model_arch"]
+
+    print(df[df["attack"] == "no_attack"])
+
+    # Sort
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    # Aggregate
+    group_by = index + columns + ["attack"]
+    df = (
+        df.groupby(
+            group_by,
+            sort=False,
+        )[metric]
+        .agg(["mean", "std", "min", "max", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+
+    bold = df.groupby(index)["mean"].transform(lambda x: x == x.min())
+
+    df["bold"] = bold
+    to_latex(
+        df,
+        bold=df["bold"],
+    )
+    to_latex(df, auto_sem=False, bold=df["bold"], custom_format=percent_format)
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
+    return pivot
+
+
+def table_defense_do(
+    df: pd.DataFrame, metric: str, with_clean_attack: bool = True
+) -> pd.DataFrame:
+    columns = ["attack"]
+    index = ["dataset", "target_model_training", "target_model_arch"]
+
+    # Filter
+    df = df[df["scenario"] == "AB"]
+    df = df[df["is_constrained"]]
+    if not with_clean_attack:
+        df = df[df["attack"] != "no_attack"]
+    df = df[df["source_model_training"].isin(["default", "madry"])]
+
+    # Sort
+
+    df = df.sort_values(by=[f"{e}_order" for e in index + columns])
+
+    # Aggregate
+
+    df = (
+        df.groupby(
+            GROUP_BY,
+            sort=False,
+        )[metric]
+        .agg(["mean", "std", "sem"])
+        .reset_index()
+    )
+
+    # Beautify
+    df = auto_beautify_values(df)
+
+    if metric == "robust_acc":
+        to_latex_min_max(
+            df,
+            index,
+            bold_min=True,
+            bold_max=False,
+        )
+
+    pivot = df.pivot_table(
+        index=index,
+        columns=columns,
+        values=["mean", "sem", "latex"],
+        sort=False,
+        aggfunc="first",
+    )
+
+    # Beautify
+
+    pivot.columns.rename(
+        [beautify_col_name(e) for e in pivot.columns.names], inplace=True
+    )
+    pivot.index.rename(
+        [beautify_col_name(e) for e in pivot.index.names], inplace=True
+    )
+
+    return pivot
+
+
+def to_latex_min_max(
+    df: pd.DataFrame,
+    index: List[str],
+    bold_min: bool = False,
+    bold_max: bool = False,
+) -> None:
+    df["is_max"] = df.groupby(index)["mean"].transform(lambda x: x == x.max())
+    df["is_min"] = df.groupby(index)["mean"].transform(lambda x: x == x.min())
+
+    df["bold"] = False
+    bold = df["bold"].copy()
+    if bold_min:
+        bold = bold | df["is_min"]
+    if bold_max:
+        bold = bold | df["is_max"]
+
+    to_latex(df, bold)
+
+
+def to_latex2(
+    df: pd.DataFrame,
+    bold: pd.Series,
+    index: List[str],
+    bold_min: bool = False,
+    bold_max: bool = False,
+    in_col: str = "mean",
+    out_col: str = "latex",
+    custom_format: Union[str, Callable] = percent_format,
+) -> None:
+
+    df["is_max"] = df.groupby(index)["mean"].transform(lambda x: x == x.max())
+    df["is_min"] = df.groupby(index)["mean"].transform(lambda x: x == x.min())
+
+    df["bold"] = False
+    bold = df["bold"].copy()
+    if bold_min:
+        bold = bold | df["is_min"]
+    if bold_max:
+        bold = bold | df["is_max"]
+
+    if isinstance(custom_format, str):
+        custom_format = custom_format.format
+
+    # df["bold"] = False
+    # bold = df["bold"].copy()
+    # df.drop(columns="bold", inplace=True, errors="ignore")
+
+    df.loc[bold, out_col] = (
+        "$\\mathbf{"
+        + df.loc[bold, in_col].map(custom_format)
+        + "}$"
+        + "\\tiny{$\\mathbf{\\pm "
+        + (1.96 * df.loc[bold, "diff"]).map(custom_format)
+        + "}$}"
+    )
+
+    df.loc[~bold, out_col] = (
+        "$"
+        + df.loc[~bold, in_col].map(custom_format)
+        + "$"
+        + "\\tiny{$\\pm "
+        + (1.96 * df.loc[~bold, "diff"]).map(custom_format)
+        + "$}"
+    )
 
 
 def run() -> None:
     df = load_data(DATA_PATH)
     df = filter_test(df)
 
-    robust_acc = table_AB(df.copy(), "robust_acc", with_clean_attack=True)
-    duration = table_AB(df.copy(), "attack_duration", with_clean_attack=False)
+    table_effective_efficient = df[
+        df["attack"].isin(["no_attack", "apgd2", "ucs", "moeva", "caa4"])
+        & (df["source_model_training"] == "default")
+    ].copy()
+    robust_acc = table_AB(
+        table_effective_efficient.copy(), "robust_acc", with_clean_attack=True
+    )
+
+    budget = table_budget(df.copy(), "robust_acc")
+    save_table(
+        budget.copy(),
+        "main_table_ab_budget",
+    )
+
+    robust_acc = table_AB(
+        table_effective_efficient.copy(), "robust_acc", with_clean_attack=True
+    )
+
+    table_ablation = df[
+        df["attack"].isin(
+            [
+                "no_attack",
+                "apgd2",
+                "apgd2-nrep",
+                "apgd2-nini",
+                "apgd2-nran",
+                "apgd2-nbes",
+                "apgd2-nada",
+            ]
+        )
+        & (df["source_model_training"] == "default")
+    ].copy()
+    print(table_ablation.shape)
+
+    table_ablation = table_AB_ablation(
+        table_ablation.copy(), "robust_acc", with_clean_attack=True
+    )
+    save_table(
+        table_ablation.copy(),
+        "capgd_ablation",
+    )
+
+    exit(0)
+
+    robust_acc_copy = robust_acc.copy()
+
+    duration = table_AB(
+        table_effective_efficient.copy(),
+        "attack_duration",
+        with_clean_attack=False,
+    )
+    duration_copy = duration.copy()
 
     rob_and_dur = pd.concat([robust_acc, duration], axis=1)
 
@@ -825,7 +1311,7 @@ def run() -> None:
         [(col[0], "Robust Accuracy", col[1]) for col in robust_acc.columns]
         + [(col[0], "Duration", col[1]) for col in duration.columns]
     )
-
+    rob_and_dur = rob_and_dur.reset_index(level=1, drop=True)
     save_table(
         rob_and_dur.copy(),
         "main_table_ab_robust_duration",
@@ -840,54 +1326,167 @@ def run() -> None:
         "main_table_ab_attack_duration",
     )
 
-    moeva_table = table_moeva_budget(df.copy(), "robust_acc")
-    save_table(
-        moeva_table.copy(),
-        "moeva_table_robust_accuracy",
+    table_defense = df[
+        df["attack"].isin(["no_attack", "moeva", "apgd2", "caa4"])
+        & (df["target_model_training"] == "madry")
+    ].copy()
+
+    table_defense = table_AB(
+        table_defense.copy(), "robust_acc", with_clean_attack=True
     )
-    for ds in moeva_table.index.get_level_values(0).unique():
-        moeva_table_ds = moeva_table.loc[ds]
-        save_table(
-            moeva_table_ds, f"{ds}/moeva_table_robust_accuracy", caption=ds
-        )
+    print(table_defense.shape)
+    print(table_defense)
+    # table_defense["latex_"]
 
-    acde_table = table_acde(df.copy(), "robust_acc")
+    # print(robust_acc[table_defense.columns].shape)
+    table_defense = table_defense.reset_index(level=1, drop=True)
+    # print(table_defense["mean"])
+    robust_acc_copy = robust_acc_copy.reset_index(level=1, drop=True)
+    print(robust_acc_copy.columns)
+    robust_acc_copy = robust_acc_copy.drop(
+        columns=[("mean", "BF"), ("latex", "BF")]
+    )
+    # print(robust_acc_copy["mean"])
+
+    # print(robust_acc_copy["mean"] - table_defense["mean"])
+
+    table_defense["latex"] += (
+        table_defense["mean"] - robust_acc_copy["mean"]
+    ).applymap(percent_format_diff)
+    print(table_defense["latex"])
+
+    # table_defense["latex"] = table_defense["latex"] + " (" + table_defense["diff"].map(percent_format) + ")"
+
     save_table(
-        acde_table,
-        "acde_table_robust_accuracy",
-        other_save=["latex_min", "latex_max"],
+        table_defense.copy(),
+        "madry_training",
+    )
+    # exit(0)
+
+    abblattion = df[
+        df["attack"].isin(
+            [
+                "no_attack",
+                "pgdl2org",
+                "pgdl2rsae",
+                "pgdl2nrsnae",
+                "pgdl2",
+                "apgd2",
+            ]
+        )
+        & (df["source_model_training"] == "default")
+    ].copy()
+
+    abblattion = table_AB(
+        abblattion.copy(), "robust_acc", with_clean_attack=True
     )
 
-    for ds in acde_table.index.get_level_values(0).unique():
-        acde_table_ds = acde_table.loc[ds]
-        save_table(
-            acde_table_ds,
-            f"acde_table_{ds}_robust_accuracy",
-            other_save=["latex_min", "latex_max"],
-            caption=ds,
-        )
+    save_table(
+        abblattion.copy(),
+        "abblattion",
+    )
 
-    for attack in ["pgdl2", "apgd", "moeva", "caa3"]:
-        df_l = df[df["attack"] == attack]
-        save_table(
-            table_eps(df_l.copy(), "robust_acc"),
-            f"eps_{attack}_table_robust_accuracy",
+    table_gradient = df[
+        df["attack"].isin(
+            ["no_attack", "pgdl2ijcai", "lowprofool", "ucs", "apgd2"]
         )
+        & (df["source_model_training"] == "default")
+    ].copy()
+    # print(df["attack"].unique())
+    robust_acc = table_AB(
+        table_gradient.copy(), "robust_acc", with_clean_attack=True
+    )
+    robust_acc = robust_acc.reset_index(level=1, drop=True)
 
-    for attack in ["pgdl2", "apgd", "caa3"]:
-        df_l = df[df["attack"] == attack]
-        save_table(
-            table_A_budget(df_l.copy(), "robust_acc"),
-            f"A_budget_{attack}_table_robust_accuracy",
-        )
+    save_table(
+        robust_acc.copy(),
+        "sota_robustness",
+    )
 
-    for dataset in df["dataset"].unique():
-        df_l = df[df["dataset"] == dataset]
-        save_table(
-            table_rank(df_l.copy()),
-            f"{dataset}/table_rank_both",
-        )
-        plot_acde(df_l.copy(), dataset)
+    table_gradient = df[
+        df["attack"].isin(["no_attack", "lowprofool", "pgdl2ijcai", "apgd2"])
+        & (df["source_model_training"] == "default")
+    ].copy()
+    # print(df["attack"].unique())
+    robust_acc = table_AB(
+        table_gradient.copy(), "robust_acc", with_clean_attack=True
+    )
+    robust_acc = robust_acc.reset_index(level=1, drop=True)
+
+    save_table(
+        robust_acc.copy(),
+        "gradient_robustness",
+    )
+
+    table_search = df[
+        df["attack"].isin(["no_attack", "ucs", "moeva", "apgd2"])
+        & (df["source_model_training"] == "default")
+    ].copy()
+    # print(df["attack"].unique())
+    robust_acc = table_AB(
+        table_search.copy(), "robust_acc", with_clean_attack=True
+    )
+    robust_acc = robust_acc.reset_index(level=1, drop=True)
+
+    save_table(
+        robust_acc.copy(),
+        "search_robustness",
+    )
+
+    transfer_table = transferability(df.copy())
+    save_table(
+        transfer_table,
+        "transferability",
+    )
+
+    # moeva_table = table_moeva_budget(df.copy(), "robust_acc")
+    # save_table(
+    #     moeva_table.copy(),
+    #     "moeva_table_robust_accuracy",
+    # )
+    # for ds in moeva_table.index.get_level_values(0).unique():
+    #     moeva_table_ds = moeva_table.loc[ds]
+    #     save_table(
+    #         moeva_table_ds, f"{ds}/moeva_table_robust_accuracy", caption=ds
+    #     )
+
+    # acde_table = table_acde(df.copy(), "robust_acc")
+    # save_table(
+    #     acde_table,
+    #     "acde_table_robust_accuracy",
+    #     other_save=["latex_min", "latex_max"],
+    # )
+
+    # for ds in acde_table.index.get_level_values(0).unique():
+    #     acde_table_ds = acde_table.loc[ds]
+    #     save_table(
+    #         acde_table_ds,
+    #         f"acde_table_{ds}_robust_accuracy",
+    #         other_save=["latex_min", "latex_max"],
+    #         caption=ds,
+    #     )
+
+    # for attack in ["pgdl2", "apgd", "moeva", "caa3"]:
+    #     df_l = df[df["attack"] == attack]
+    #     save_table(
+    #         table_eps(df_l.copy(), "robust_acc"),
+    #         f"eps_{attack}_table_robust_accuracy",
+    #     )
+
+    # for attack in ["pgdl2", "apgd", "caa3"]:
+    #     df_l = df[df["attack"] == attack]
+    #     save_table(
+    #         table_A_budget(df_l.copy(), "robust_acc"),
+    #         f"A_budget_{attack}_table_robust_accuracy",
+    #     )
+
+    # for dataset in df["dataset"].unique():
+    #     df_l = df[df["dataset"] == dataset]
+    #     save_table(
+    #         table_rank(df_l.copy()),
+    #         f"{dataset}/table_rank_both",
+    #     )
+    #     plot_acde(df_l.copy(), dataset)
 
 
 if __name__ == "__main__":

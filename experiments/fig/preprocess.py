@@ -42,8 +42,8 @@ def load_json_data(path: str) -> Dict[str, Any]:
 
 
 def add_no_attack(df: pd.DataFrame) -> pd.DataFrame:
-    filter_augment = (df["attack_name"] == "pgdl2") & df["scenario_name"].isin(
-        ["AB"]
+    filter_augment = (df["attack_name"] == "caa5") & df["scenario_name"].isin(
+        ["default"]
     )
 
     df_augment = df[filter_augment].copy()
@@ -109,8 +109,12 @@ def parse_n_iter(df: pd.DataFrame) -> pd.DataFrame:
         df["attack_name"] == "moeva", "n_gen"
     ]
     df.loc[
-        df["attack_name"].isin(["caa3", "apgd", "pgdl2"]), "n_iter"
-    ] = df.loc[df["attack_name"].isin(["caa3", "apgd", "pgdl2"]), "steps"]
+        df["attack_name"].isin(["caa3", "apgd", "pgdl2", "caa4", "apgd2"]),
+        "n_iter",
+    ] = df.loc[
+        df["attack_name"].isin(["caa3", "apgd", "pgdl2", "caa4", "apgd2"]),
+        "steps",
+    ]
     return df
 
 
@@ -135,9 +139,14 @@ def add_order(df: pd.DataFrame) -> pd.DataFrame:
     for col, names in data_order.items():
         names = list(names.keys())
         mapping = {name: i for i, name in enumerate(names)}
-        df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
-            ~df[col].isna(), col
-        ].apply(lambda x: mapping[x])
+        try:
+            df.loc[~df[col].isna(), f"{col}_order"] = df.loc[
+                ~df[col].isna(), col
+            ].apply(lambda x: mapping[x])
+        except KeyError as e:
+            print(e)
+            print(f"Key problem with feature {col}")
+            exit(1)
 
     for col in ["eps", "n_iter"]:
         df[f"{col}_order"] = df[col]
@@ -181,6 +190,9 @@ COL_FILTER = [
     "attack_duration",
     "clean_acc",
     "robust_acc",
+    "timestamp",
+    "n_gen",
+    "steps",
 ]
 
 
@@ -216,6 +228,42 @@ def temp_filter(df: pd.DataFrame) -> pd.DataFrame:
         (df["source_model_arch"] != "saint")
         & (df["target_model_arch"] != "saint")
     ]
+
+    df = df[~df["attack"].isin(["bfs"])]
+
+    print(df.columns)
+    filter_out_c = df["scenario"].isin(["C", "D", "E"]) & df[
+        "source_model_training"
+    ].isin(["madry"])
+    df = df[~filter_out_c]
+    # filter_out_c = df["source_model_training"].isin(["subset", "dist"])
+    # df = df[~filter_out_c]
+    df = df[df["is_constrained"]]
+
+    df_int = df[(df["attack"] == "moeva") & (df["dataset"] == "lcld_v2_iid")]
+    df_int.to_csv("inspect.csv")
+    # print(df_int)
+    df_int = df[(df["attack"] == "caa4") & (df["dataset"] == "lcld_v2_iid")]
+    print(df["is_constrained"].unique())
+
+    print(df["attack"].unique())
+    filter_out = (df["attack"] == "ucs") & (df["seed"] != 0)
+    df = df[~filter_out]
+
+    print(df.columns)
+
+    filter_out = (
+        (df["attack"] == "caa4")
+        & (df["timestamp"] < 1715439188)
+        & (df["n_iter"] == 20)
+    )
+    df = df[~filter_out]
+    df = df.drop(columns=["timestamp"])
+
+    df = df.drop_duplicates()
+    # exit(0)
+
+    # print
     return df
 
 
@@ -250,8 +298,8 @@ def correction_n_iter(df: pd.DataFrame) -> pd.DataFrame:
     missing = df["n_iter"] == -1
     # Some n_iter are missing
     missing_sum = missing.sum()
-    if missing_sum != 324:
-        raise ValueError(f"n_iter is missing {missing_sum} values.")
+    # if missing_sum != 324:
+    #     raise ValueError(f"n_iter is missing {missing_sum} values.")
 
     df.loc[missing, "n_iter"] = 10
 
@@ -262,24 +310,40 @@ def correction_n_iter(df: pd.DataFrame) -> pd.DataFrame:
 
 def run() -> None:
     path = "data/xp_results/data_2024_02_08_10_13_37.json"
+    path = "./data/xp_results/data_2024_04_25_10_17_57.json"
+    path = "./data/xp_results/data_2024_05_06_08_15_28.json"
+    path = "./data/xp_results/data_2024_05_13_16_49_17.json"
+    path = "./data/xp_results/data_2024_05_13_19_52_13.json"
+    path = "./data/xp_results/data_2024_05_15_10_36_07.json"
+    path = "./data/xp_results/data_2024_05_15_11_56_30.json"
+    path = "./data/xp_results/data_2024_05_15_13_26_43.json"
+    path = "./data/xp_results/data_2024_05_15_15_23_35.json"
+    path = "./data/xp_results/data_2024_05_16_13_17_05.json"
+    path = "./data/xp_results/data_latest.json"
     json_data = load_json_data(path)
     df = parse_json_data(json_data)
     df = augment_data(df)
     df = parse_data(df)
+
     df = filter_columns(df)
-    df = filter_values(df)
-    df = filter_source_equal_target(df)
+    # df = filter_values(df)
+    # df = filter_source_equal_target(df)
     df = filter_just_train(df)
+
     df = filter_d_e(df)
     df = filter_nan(df)
     df = correction_n_iter(df)
+
     df = filter_not_default(df)
+
     df = temp_filter(df)
+    # print(df["attack"].unique())
+    # exit(0)
     df = add_order(df)
-    df.to_csv("data_tmp.csv", index=False)
+    df.to_csv("./data_xp.csv", index=False)
 
     df = df.sort_values(by=["scenario", "dataset"])
-    count = ["scenario", "dataset"]
+    count = ["scenario", "dataset", "attack"]
     print(df[count].sort_values(by=count).value_counts(sort=False))
 
 
