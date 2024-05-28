@@ -229,8 +229,10 @@ def get_adv_path(
     #     prefix = "cache.kdd24"
     if (attack_name == "pgdl2ijcai") or (attack_name == "lowprofool") or (attack_name == "moeva") or (attack_name == "ucs"):
         prefix = "cache_bis/cache.bk20240425-ecai24"
+        prefix = "cache"
+        prefix = "/scratch/users/tsimonetto/cache_not_folder/cache.bk20240425-ecai24"
     # os.makedirs("./cache", exist_ok=True)
-    adv_path = os.path.join(f"./{prefix}", adv_name)
+    adv_path = os.path.join(f"{prefix}", adv_name)
     return adv_path
 
 
@@ -284,8 +286,8 @@ if __name__ == "__main__":
     constraints = 1
     filter_class = 1
     attacks = ["apgd3","apgd3-nrep", "apgd3-nini", "apgd3-nran", "apgd3-nada"]
-    attacks = ["apgd3","pgdl2ijcai", "lowprofool",]
-    attacks = ["apgd3","moeva", "ucs",]
+    # attacks = ["apgd3","pgdl2ijcai", "lowprofool",]
+    # attacks = ["apgd3","moeva", "ucs",]
     metric_list = []
     metric_list3 = []
     for dataset, model, dataloader in tqdm(itertools.product(
@@ -308,8 +310,8 @@ if __name__ == "__main__":
         metric_list3.extend(metric_dict3)
     df = pd.DataFrame(metric_list)
     suffix = "cagpd3_ablation"
-    suffix = "gradient"
-    suffix = "search"
+    # suffix = "gradient"
+    # suffix = "search"
     df.to_csv(f"intersection_{suffix}.csv")
     df = pd.DataFrame(metric_list3)
     df.to_csv(f"intersection3_{suffix}.csv")
