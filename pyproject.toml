@@ -23,6 +23,7 @@ serval-ml-commons = {path = "../mlc/", develop = true, extras = ["tabsurvey"] }
 torchattacks = "^3.4.0"
 seaborn = "^0.12.2"
 comet-ml = "^3.33.8"
+matplotlib-venn = "^0.11.10"
 
 [tool.poetry.extras]
 tensorflow = ["tensorflow", "adversarial-robustness-toolbox", "tensorflow-io-gcs-filesystem", "protobuf"]
