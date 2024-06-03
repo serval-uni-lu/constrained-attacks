@@ -147,7 +147,7 @@ class ConstrainedMultiAttack(MultiAttack):
             # )
             # assert np.equal(clean_indices, success_attack_indices).all()
             # Sanity check end
-            print("After check")
+            # print("After check")
 
             # If we found adversarials
             if len(success_attack_indices) > 0:
@@ -1271,21 +1271,21 @@ class ConstrainedAutoAttack5(Attack):
         self.n_gen = n_gen
         self.n_offsprings = n_offsprings
 
-        if self.constraints_eval.relation_constraints is not None:
-            self.objective_calculator = ObjectiveCalculator(
+        # TODO
+        self.objective_calculator = ObjectiveCalculator(
                 model_objective,
                 constraints=self.constraints_eval,
                 thresholds={"distance": eps},
                 norm=norm,
                 fun_distance_preprocess=self.scaler.transform,
             )
+        if self.constraints_eval.relation_constraints is not None:
             self.constraints_executor = ConstraintsExecutor(
                 AndConstraint(self.constraints_eval.relation_constraints),
                 PytorchBackend(),
                 feature_names=self.constraints_eval.feature_names,
             )
         else:
-            self.objective_calculator = None
             self.constraints_executor = None
 
         if version == "standard":  # ['c-apgd-ce', 'c-fab', 'Moeva2']
