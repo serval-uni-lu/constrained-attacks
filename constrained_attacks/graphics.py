@@ -29,19 +29,20 @@ rc("text", usetex=True)
 # matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]# - global options
 # matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 plt.rc("text.latex", preamble=r"\usepackage{amsmath}")
-FIGURE_FOLDER = "data/fig/20240105_0/"
+FIGURE_FOLDER = "data/fig/20240207_0/"
 EXTENSION = ".pdf"
-FONT_SCALE = 1.3
+FONT_SCALE = 1.5
 DPI = 300
 PALETTE = "colorblind"
 OUTSIDE_LEGEND = (1.05, 0.5)
 ABOVE_LEGEND = (0, 1.02, 1, 0.2)
 FONT_WEIGHT = "bold"
+FULL_OUTSIDE_LEGEND = (1.2, 1)
 
 
 def lineplot(
+    path: str,
     data,
-    name,
     x,
     y,
     y_label="",
@@ -57,6 +58,7 @@ def lineplot(
     h_lines=[],
     error_min_max=False,
 ):
+    Path.mkdir(Path(path).parent, parents=True, exist_ok=True)
     plt.figure(figsize=fig_size)
     sns.set(style="darkgrid", color_codes=True, font_scale=FONT_SCALE)
 
@@ -77,6 +79,7 @@ def lineplot(
         linestyle="dotted",
         marker="o",
         errorbar=error_f if error_min_max else ("ci", 95),
+        linewidth=2,
     )
 
     if hue and legend_pos:
@@ -84,7 +87,7 @@ def lineplot(
         if legend_pos == "outside":
             plt.legend(
                 loc="center left",
-                bbox_to_anchor=OUTSIDE_LEGEND,
+                bbox_to_anchor=FULL_OUTSIDE_LEGEND,
                 prop={"size": FONT_SCALE * 12},
                 # handles=handles[1:],
                 # labels=labels[1:],
@@ -96,7 +99,8 @@ def lineplot(
                 # handles=handles[1:],
                 # labels=labels[1:],
             )
-
+    if not legend_pos:
+        plt.legend().remove()
     plt.ylabel(y_label)
     plt.xlabel(x_label)
     #
@@ -114,7 +118,7 @@ def lineplot(
 
     plt.tight_layout()
 
-    plt.savefig(_get_filename(name), dpi=DPI)
+    plt.savefig(path, dpi=DPI)
     plt.close("all")
 
 
@@ -286,7 +290,11 @@ def barplot(
             errorbar=error_f if error_min_max else ("ci", 95),
             **kwargs,
         )
-        _setup_legend(data, legend_pos, hue)
+        if legend_pos:
+            _setup_legend(data, legend_pos, hue)
+
+    if not legend_pos:
+        plt.legend().remove()
 
     plt.ylabel(y_label)
     plt.xlabel(x_label)
@@ -369,7 +377,7 @@ def _setup_legend(data, legend_pos, hue):
         elif legend_pos == "outside":
             plt.legend(
                 loc="upper center",
-                bbox_to_anchor=OUTSIDE_LEGEND,
+                bbox_to_anchor=FULL_OUTSIDE_LEGEND,
                 prop={"size": FONT_SCALE * 12},
             )
         else:

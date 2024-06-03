@@ -562,8 +562,13 @@ def get_adv_path(
     n_gen: int,
     n_offsprings: int,
     seed: int,
+    evaluate_constraints: bool,
 ) -> str:
     adv_name = f"{dataset_name}_{model_name}_{model_training}_{constraints}_{attack_name}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}.pt"
+    # Evaluate constraints was not plan, backward compatibility
+    if not evaluate_constraints:
+        adv_name = f"{dataset_name}_{model_name}_{model_training}_{constraints}_{attack_name}_{subset}_{eps}_{steps}_{n_gen}_{n_offsprings}_{seed}_no-constraints-eval.pt"
+
     os.makedirs("./cache", exist_ok=True)
     adv_path = os.path.join("./cache", adv_name)
     return adv_path
@@ -598,6 +603,7 @@ def run(
     steps: int = 10,
     load_adv: bool = False,
     save_adv: bool = False,
+    evaluate_constraints: bool = True
 ):
     # Load data
 
@@ -689,6 +695,9 @@ def run(
     if not constraints_access:
         constraints.relation_constraints = None
 
+    if not evaluate_constraints:
+        constraints_eval.relation_constraints = None
+
     if model_name_target is not None:
         list_model_name_target, list_custom_path_target = parse_target(
             model_name_target, custom_path_target, dataset_name
@@ -713,6 +722,7 @@ def run(
                     n_gen,
                     n_offsprings,
                     seed,
+                    evaluate_constraints
                 ),
                 batch_size,
             )
@@ -780,6 +790,7 @@ def run(
                         n_gen,
                         n_offsprings,
                         seed,
+                        evaluate_constraints
                     ),
                     last_adv,
                 )
@@ -836,6 +847,12 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=10)
     parser.add_argument("--save_adv", type=int, default=0)
     parser.add_argument("--load_adv", type=int, default=0)
+    parser.add_argument("--constraints_evaluation", action="store_true", default=True)
+    parser.add_argument(
+        "--no-constraints_evaluation",
+        dest="constraints_evaluation",
+        action="store_false",
+    )
 
     args = parser.parse_args()
 
@@ -861,4 +878,5 @@ if __name__ == "__main__":
         steps=args.steps,
         load_adv=args.load_adv != 0,
         save_adv=args.save_adv != 0,
+        evaluate_constraints=args.constraints_evaluation
     )

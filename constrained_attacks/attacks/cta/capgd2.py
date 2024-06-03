@@ -101,14 +101,15 @@ class CAPGD2(Attack):
 
         self.objective_calculator: Optional[ObjectiveCalculator] = None
         self.constraints_executor: Optional[ConstraintsExecutor] = None
-        if self.constraints.relation_constraints is not None:
-            self.objective_calculator = ObjectiveCalculator(
+        self.objective_calculator = ObjectiveCalculator(
                 model_objective,
                 constraints=self.constraints,
                 thresholds={"distance": eps},
                 norm=norm,
                 fun_distance_preprocess=self.scaler.transform,
             )
+        if self.constraints.relation_constraints is not None:
+            
             self.constraints_executor = ConstraintsExecutor(
                 AndConstraint(self.constraints.relation_constraints),
                 PytorchBackend(),
