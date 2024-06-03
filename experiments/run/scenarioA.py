@@ -570,7 +570,7 @@ def get_adv_path(
 
 
 def path_to_training(path):
-    training = ["default", "madry", "subset", "dist"]
+    training = ["ctgan_madry", "cutmix_madry", "goggle_madry", "wgan_madry", "tablegan_madry", "tvae_madry", "ctgan", "cutmix", "goggle", "wgan", "tablegan", "tvae" "default", "madry", "subset", "dist"]
     for t in training:
         if t in path:
             return t
