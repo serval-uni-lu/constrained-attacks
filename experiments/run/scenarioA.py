@@ -726,6 +726,24 @@ def run(
                 ),
                 batch_size,
             )
+        if os.path.exists(
+            get_adv_path(
+                    dataset_name,
+                    model_name,
+                    path_to_training(weight_path),
+                    int(constraints_access),
+                    attack_name,
+                    subset,
+                    max_eps,
+                    steps,
+                    n_gen,
+                    n_offsprings,
+                    seed,
+                    evaluate_constraints
+            )
+        ):
+            pass
+            # exit(0)
         for target_idx, (
             model_name_target_l,
             custom_path_target_l,
