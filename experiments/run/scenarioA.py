@@ -396,6 +396,11 @@ def run_experiment(
             "constraints_success_rate", auto_attack_metrics.constraints_rate[-1]
         )
 
+        for i, e in enumerate(auto_attack_metrics.stopwatch_data):
+            ele = dataclasses.asdict(e)
+            for key in ele:
+                experiment.log_metric(f"time_{i}_{key}", ele[key])
+
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
         if filter_class is not None:
@@ -836,18 +841,18 @@ def run(
             )
         if os.path.exists(
             get_adv_path(
-                    dataset_name,
-                    model_name,
-                    path_to_training(weight_path),
-                    int(constraints_access),
-                    attack_name,
-                    subset,
-                    max_eps,
-                    steps,
-                    n_gen,
-                    n_offsprings,
-                    seed,
-                    evaluate_constraints
+                dataset_name,
+                model_name,
+                path_to_training(weight_path),
+                int(constraints_access),
+                attack_name,
+                subset,
+                max_eps,
+                steps,
+                n_gen,
+                n_offsprings,
+                seed,
+                evaluate_constraints,
             )
         ):
             pass

@@ -12,6 +12,8 @@ from mlc.constraints.numpy_backend import NumpyBackend
 from mlc.constraints.relation_constraint import AndConstraint
 from mlc.utils import to_numpy_number
 
+from constrained_attacks.utils.stopwatch import StopWatch, Timer
+
 NB_OBJECTIVES = 3
 
 
@@ -51,6 +53,8 @@ class AdversarialProblem(Problem):
             xl[constraints.mutable_features],
             xu[self.constraints.mutable_features],
         )
+
+        self.stopwatch = StopWatch()
 
         super().__init__(
             n_var=self.constraints.mutable_features.sum(),
@@ -104,14 +108,16 @@ class AdversarialProblem(Problem):
 
         x_adv = np.repeat(self.x_clean.reshape(1, -1), x.shape[0], axis=0)
         x_adv[:, self.constraints.mutable_features] = x
+        with Timer(self.stopwatch, "adv_loss"):
+            obj_misclassify = self._obj_misclassify(x_adv)
 
-        obj_misclassify = self._obj_misclassify(x_adv)
-
-        obj_distance = self._obj_distance(
-            self.fun_distance_preprocess(x_adv), self.x_clean_distance
-        )
-
-        obj_constraints = self._calculate_constraints(x_adv)
+        with Timer(self.stopwatch, "distance_loss"):
+            obj_distance = self._obj_distance(
+                self.fun_distance_preprocess(x_adv), self.x_clean_distance
+            )
+            
+        with Timer(self.stopwatch, "constraints_loss"):
+            obj_constraints = self._calculate_constraints(x_adv)
 
         F = [to_numpy_number(obj_misclassify), obj_distance, obj_constraints]
 

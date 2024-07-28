@@ -1,6 +1,8 @@
+from dataclasses import dataclass, field
+import itertools
 import os
 import warnings
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
@@ -26,6 +28,13 @@ from constrained_attacks.attacks.moeva.operators import InitialStateSampling
 from constrained_attacks.utils import cut_in_batch
 from mlc.constraints.constraints import Constraints
 from mlc.utils import to_numpy_number, to_torch_number
+
+from constrained_attacks.utils.stopwatch import (
+    StopWatch,
+    Timer,
+    merge_stopwatch_data,
+    merge_stopwatch_dict,
+)
 from .adversarial_problem import NB_OBJECTIVES, AdversarialProblem
 
 from mlc.models.tabsurvey.vime import VIME
@@ -38,21 +47,29 @@ def tf_lof_off():
     warnings.simplefilter(action="ignore", category=UserWarning)
 
 
+@dataclass
+class AttackResult:
+
+    adv: np.ndarray
+    history: Optional[np.array] = None
+    stopwatch: Dict[str, float] = field(default_factory=dict)
+
+
 class Moeva2:
     def __init__(
-            self,
-            model,
-            constraints: Constraints,
-            norm=None,
-            fun_distance_preprocess=lambda x: x,
-            n_gen=100,
-            n_pop=203,
-            n_offsprings=100,
-            save_history=None,
-            seed=None,
-            n_jobs=32,
-            verbose=1,
-            **kwargs
+        self,
+        model,
+        constraints: Constraints,
+        norm=None,
+        fun_distance_preprocess=lambda x: x,
+        n_gen=100,
+        n_pop=203,
+        n_offsprings=100,
+        save_history=None,
+        seed=None,
+        n_jobs=32,
+        verbose=1,
+        **kwargs,
     ) -> None:
 
         self.classifier_class = model
@@ -68,6 +85,7 @@ class Moeva2:
         self.seed = seed
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.stop_watch_data = None
 
         # Defaults
         self.alg_class = RNSGA3
@@ -144,52 +162,61 @@ class Moeva2:
 
         return algorithm
 
-    def _one_generate(self, x, y: int, classifier):
+    def _one_generate(self, x, y: int, classifier) -> AttackResult:
         # Reduce log
-        termination = get_termination("n_gen", self.n_gen)
 
-        constraints = self.constraints
+        stopwatch = StopWatch()
+        with Timer(stopwatch, "total"):
+            termination = get_termination("n_gen", self.n_gen)
 
-        problem = self.problem_class(
-            x_clean=x,
-            y_clean=y,
-            classifier=classifier,
-            constraints=constraints,
-            fun_distance_preprocess=self.fun_distance_preprocess,
-            norm=self.norm,
+            constraints = self.constraints
+
+            problem = self.problem_class(
+                x_clean=x,
+                y_clean=y,
+                classifier=classifier,
+                constraints=constraints,
+                fun_distance_preprocess=self.fun_distance_preprocess,
+                norm=self.norm,
+            )
+
+            algorithm = self._create_algorithm()
+
+            if self.save_history is not None:
+                callback = HistoryCallback()
+            else:
+                callback = None
+
+            # save_history Implemented from library should always be False
+            result = minimize(
+                problem,
+                algorithm,
+                termination,
+                verbose=0,
+                seed=self.seed,
+                callback=callback,
+                save_history=False,
+            )
+
+            x_adv_mutable = np.array(
+                [ind.X.astype(np.float64) for ind in result.pop]
+            )
+            x_adv = np.repeat(x.reshape(1, -1), x_adv_mutable.shape[0], axis=0)
+            x_adv[:, self.constraints.mutable_features] = x_adv_mutable
+
+            history = None
+            if self.save_history is not None:
+                history = np.array(result.algorithm.callback.data["F"])
+
+        stopwatch_data = merge_stopwatch_data([stopwatch, problem.stopwatch])
+        return AttackResult(
+            adv=x_adv,
+            history=history,
+            stopwatch=stopwatch_data,
         )
 
-        algorithm = self._create_algorithm()
+    def _batch_generate(self, x, y, batch_i) -> List[AttackResult]:
 
-        if self.save_history is not None:
-            callback = HistoryCallback()
-        else:
-            callback = None
-
-        # save_history Implemented from library should always be False
-        result = minimize(
-            problem,
-            algorithm,
-            termination,
-            verbose=0,
-            seed=self.seed,
-            callback=callback,
-            save_history=False,
-        )
-
-        x_adv_mutable = np.array(
-            [ind.X.astype(np.float64) for ind in result.pop]
-        )
-        x_adv = np.repeat(x.reshape(1, -1), x_adv_mutable.shape[0], axis=0)
-        x_adv[:, self.constraints.mutable_features] = x_adv_mutable
-
-        if self.save_history is not None:
-            history = np.array(result.algorithm.callback.data["F"])
-            return x_adv, history
-        else:
-            return x_adv
-
-    def _batch_generate(self, x, y, batch_i):
         tf_lof_off()
         # torch.set_num_threads(1)
 
@@ -203,11 +230,11 @@ class Moeva2:
         classifier = self.classifier_class
 
         out = [self._one_generate(x[i], y[i], classifier) for i, _ in iterable]
-        if self.save_history is not None:
-            out = zip(*out)
-            out = [np.array(out_0) for out_0 in out]
-        else:
-            out = np.array(out)
+        # if self.save_history is not None:
+        #     out = zip(*out)
+        #     out = [np.array(out_0) for out_0 in out]
+        # else:
+        #     out = np.array(out)
 
         return out
 
@@ -230,13 +257,13 @@ class Moeva2:
         self.n_jobs = 1000
         batches_i = cut_in_batch(
             np.arange(x.shape[0]),
-            n_desired_batch=self.n_jobs
-            if self.n_jobs > 1
-            else joblib.cpu_count(),
+            n_desired_batch=(
+                self.n_jobs if self.n_jobs > 1 else joblib.cpu_count()
+            ),
             batch_size=batch_size,
         )
         self.n_jobs = 32
-        if (x.shape[-1] == 24222):
+        if x.shape[-1] == 24222:
             self.n_jobs = 16
             print(type(self.model))
             if isinstance(self.model, VIME):
@@ -252,13 +279,12 @@ class Moeva2:
         self._check_inputs(x, y)
 
         iterable = enumerate(batches_i)
-        self.verbose=1
+        self.verbose = 1
         if self.verbose >= 1:
             iterable = tqdm(iterable, total=len(batches_i))
 
-              
         print(self.n_jobs)
-        
+
         # Sequential Run
         if self.n_jobs == 1:
             print("Sequential run.")
@@ -267,7 +293,6 @@ class Moeva2:
                 for i, batch_indexes in iterable
             ]
 
-  
         # Parallel run
         else:
             print("Parallel run.")
@@ -278,18 +303,22 @@ class Moeva2:
                 for i, batch_indexes in iterable
             )
 
+        out = itertools.chain.from_iterable(out)
+
+        self.stop_watch_data = merge_stopwatch_dict([e.stopwatch for e in out])
+
         print("Done with moeva")
         if self.save_history is not None:
             out = zip(*out)
             out = [np.concatenate(out_0) for out_0 in out]
 
-            x_adv = out[0]
-            histories = out[1]
+            x_adv = np.concatenate([e.adv for e in out])
+            histories = np.concatenate([e.history for e in out])
             return x_adv, histories
         else:
-            return np.concatenate(out)
+            return np.concatenate([e.adv for e in out])
 
     def __call__(
-            self, x: np.ndarray, y, batch_size=None, *args, **kwargs
+        self, x: np.ndarray, y, batch_size=None, *args, **kwargs
     ) -> Any:
         return self.generate(x, y, batch_size)
