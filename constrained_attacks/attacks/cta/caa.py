@@ -122,8 +122,6 @@ class ConstrainedMultiAttack(MultiAttack):
             # Type conversion
             numpy_clean = to_numpy_number(images[fails]).astype(np.float32)
             numpy_adv = to_numpy_number(filter_adv)
-            # np.save("b.npy", numpy_adv)
-            # np.save("b_clean.npy", numpy_clean)
 
             # Indexes of the successful attacks
             (
@@ -132,22 +130,6 @@ class ConstrainedMultiAttack(MultiAttack):
             ) = self.objective_calculator.get_successful_attacks_indexes(
                 numpy_clean, labels[fails].cpu(), numpy_adv, max_inputs=1
             )
-
-            # print(f"Objective_calc id in CAA {id(self.objective_calculator)}")
-
-            # print(f"Index len{len(success_attack_indices)}")
-            # print(self.objective_calculator.thresholds)
-
-
-            # Sanity check start, can ignore for debugging
-            # clean_indices = (
-            #     self.objective_calculator.get_successful_attacks_clean_indexes(
-            #         numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
-            #     )
-            # )
-            # assert np.equal(clean_indices, success_attack_indices).all()
-            # Sanity check end
-            # print("After check")
 
             # If we found adversarials
             if len(success_attack_indices) > 0:
@@ -161,25 +143,33 @@ class ConstrainedMultiAttack(MultiAttack):
             multi_atk_records.append(len(fails))
 
             self.robust_accuracies.append(1 - (len(fails) / batch_size))
-            
-            
-
-            # measure = self.objective_calculator.get_objectives_respected(
-            #     numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
-            # )
-            # self.constraints_rate.append(
-            #     [
-            #         constraints_percentage(c, numpy_adv, measure)
-            #         for c in self.objective_calculator.constraints.relation_constraints
-            #     ]
-            # )
 
             self.mdc.append(
                 self.objective_calculator.get_success_rate(
-                    numpy_clean, labels[fails].cpu(), numpy_adv, recompute=False
+                    numpy_clean,
+                    labels[fails].cpu(),
+                    numpy_adv,
+                    recompute=False,
                 )
             )
-            
+
+            log_constraints = True
+            if log_constraints:
+                numpy_adv_constraints = numpy_adv.reshape(-1, numpy_adv[:-1])
+
+                executor = ConstraintsExecutor(
+                    AndConstraint(
+                        self.objective_calculator.constraints.relation_constraints
+                    ),
+                    NumpyBackend(),
+                    feature_names=self.objective_calculator.constraints.feature_names,
+                )
+                executor.execute(numpy_adv_constraints)
+                constraints_and = executor.get_last_and_operands()
+                self.constraints_rate.append(
+                    (constraints_and <= 0).astype(int).mean(0)
+                )
+
             print("Over")
 
             if len(fails) == 0:
@@ -954,7 +944,6 @@ class ConstrainedAutoAttack3(Attack):
         return int(time.time()) if self.seed is None else self.seed
 
 
-
 class ConstrainedAutoAttack4(Attack):
     r"""
     Extended AutoAttack in the paper 'Reliable evaluation of adversarial robustness with an ensemble of diverse parameter-free attacks'
@@ -1198,7 +1187,6 @@ class ConstrainedAutoAttack4(Attack):
         return int(time.time()) if self.seed is None else self.seed
 
 
-
 class ConstrainedAutoAttack5(Attack):
     r"""
     Extended AutoAttack in the paper 'Reliable evaluation of adversarial robustness with an ensemble of diverse parameter-free attacks'
@@ -1273,12 +1261,12 @@ class ConstrainedAutoAttack5(Attack):
 
         # TODO
         self.objective_calculator = ObjectiveCalculator(
-                model_objective,
-                constraints=self.constraints_eval,
-                thresholds={"distance": eps},
-                norm=norm,
-                fun_distance_preprocess=self.scaler.transform,
-            )
+            model_objective,
+            constraints=self.constraints_eval,
+            thresholds={"distance": eps},
+            norm=norm,
+            fun_distance_preprocess=self.scaler.transform,
+        )
         if self.constraints_eval.relation_constraints is not None:
             self.constraints_executor = ConstraintsExecutor(
                 AndConstraint(self.constraints_eval.relation_constraints),

@@ -29,9 +29,12 @@ from mlc.models.model import Model
 from mlc.models.model_factory import load_model
 from mlc.transformers.tab_scaler import TabScaler
 from sklearn.model_selection import train_test_split
-from constrained_attacks.objective_calculator.cache_objective_calculator import ObjectiveRespected
+from constrained_attacks.objective_calculator.cache_objective_calculator import (
+    ObjectiveRespected,
+)
 
 from comet import LocalXp as XP
+
 # from comet import LocalXp as XP
 
 from constrained_attacks.attacks.cta.caa import (
@@ -40,7 +43,7 @@ from constrained_attacks.attacks.cta.caa import (
     ConstrainedAutoAttack3,
     ConstrainedAutoAttack4,
     ConstrainedMultiAttack,
-    ConstrainedAutoAttack5
+    ConstrainedAutoAttack5,
 )
 from constrained_attacks.attacks.cta.capgd import CAPGD
 from constrained_attacks.attacks.cta.capgd2 import CAPGD2
@@ -106,23 +109,97 @@ def run_experiment(
 
     if ATTACKS is None:
         ATTACKS = {
-            "pgdl2ijcai": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False, "fix_constraints_ijcai": True}),
-            "pgdl2org": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": False}),
-            "pgdl2rsae": (CPGDL2, {"steps": steps, "adaptive_eps": True, "random_start": True}),
-            "pgdl2nrsnae": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": False}),
-            "pgdl2": (CPGDL2, {"steps": steps, "adaptive_eps": False, "random_start": True}),
+            "pgdl2ijcai": (
+                CPGDL2,
+                {
+                    "steps": steps,
+                    "adaptive_eps": True,
+                    "random_start": False,
+                    "fix_constraints_ijcai": True,
+                },
+            ),
+            "pgdl2org": (
+                CPGDL2,
+                {"steps": steps, "adaptive_eps": True, "random_start": False},
+            ),
+            "pgdl2rsae": (
+                CPGDL2,
+                {"steps": steps, "adaptive_eps": True, "random_start": True},
+            ),
+            "pgdl2nrsnae": (
+                CPGDL2,
+                {"steps": steps, "adaptive_eps": False, "random_start": False},
+            ),
+            "pgdl2": (
+                CPGDL2,
+                {"steps": steps, "adaptive_eps": False, "random_start": True},
+            ),
             "apgd": (CAPGD, {"steps": steps}),
             "apgd2": (CAPGD2, {"steps": steps, "n_restarts": 2}),
-            "apgd2-nrep": (CAPGD2, {"steps": steps, "n_restarts": 2, "fix_equality_constraints_iter": False}),
-            "apgd2-nini": (CAPGD2, {"steps": steps, "n_restarts": 1, "init_start": False}),
-            "apgd2-nran": (CAPGD2, {"steps": steps, "n_restarts": 1, "random_start": False}),
-            "apgd2-nbes": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False}),
-            "apgd2-nada": (CAPGD2, {"steps": steps, "n_restarts": 2, "adaptive_eps": False}),
-            "apgd3": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False}),
-            "apgd3-nrep": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False, "fix_equality_constraints_iter": False}),
-            "apgd3-nini": (CAPGD2, {"steps": steps, "n_restarts": 1, "best_restart": False, "init_start": False}),
-            "apgd3-nran": (CAPGD2, {"steps": steps, "n_restarts": 1, "best_restart": False, "random_start": False}),
-            "apgd3-nada": (CAPGD2, {"steps": steps, "n_restarts": 2, "best_restart": False, "adaptive_eps": False}),
+            "apgd2-nrep": (
+                CAPGD2,
+                {
+                    "steps": steps,
+                    "n_restarts": 2,
+                    "fix_equality_constraints_iter": False,
+                },
+            ),
+            "apgd2-nini": (
+                CAPGD2,
+                {"steps": steps, "n_restarts": 1, "init_start": False},
+            ),
+            "apgd2-nran": (
+                CAPGD2,
+                {"steps": steps, "n_restarts": 1, "random_start": False},
+            ),
+            "apgd2-nbes": (
+                CAPGD2,
+                {"steps": steps, "n_restarts": 2, "best_restart": False},
+            ),
+            "apgd2-nada": (
+                CAPGD2,
+                {"steps": steps, "n_restarts": 2, "adaptive_eps": False},
+            ),
+            "apgd3": (
+                CAPGD2,
+                {"steps": steps, "n_restarts": 2, "best_restart": False},
+            ),
+            "apgd3-nrep": (
+                CAPGD2,
+                {
+                    "steps": steps,
+                    "n_restarts": 2,
+                    "best_restart": False,
+                    "fix_equality_constraints_iter": False,
+                },
+            ),
+            "apgd3-nini": (
+                CAPGD2,
+                {
+                    "steps": steps,
+                    "n_restarts": 1,
+                    "best_restart": False,
+                    "init_start": False,
+                },
+            ),
+            "apgd3-nran": (
+                CAPGD2,
+                {
+                    "steps": steps,
+                    "n_restarts": 1,
+                    "best_restart": False,
+                    "random_start": False,
+                },
+            ),
+            "apgd3-nada": (
+                CAPGD2,
+                {
+                    "steps": steps,
+                    "n_restarts": 2,
+                    "best_restart": False,
+                    "adaptive_eps": False,
+                },
+            ),
             "fab": (CFAB, {}),
             "moeva": (
                 Moeva2,
@@ -183,24 +260,24 @@ def run_experiment(
                 {
                     "weights": get_weights(dataset),
                     "steps": steps,
-                    "model_name": model.name
-                }
+                    "model_name": model.name,
+                },
             ),
             "ucs": (
                 UCS,
                 {
                     "fun_distance_preprocess": scaler.transform,
-                    "model_name": model.name
-                }
-            ), 
+                    "model_name": model.name,
+                },
+            ),
             "bfs": (
                 UCS,
                 {
                     "fun_distance_preprocess": scaler.transform,
                     "model_name": model.name,
-                    "epsilon": 1000000
-                }
-            )
+                    "epsilon": 1000000,
+                },
+            ),
         }
 
     attack_class = ATTACKS.get(attack_name, (CPGDL2, {}))
@@ -214,7 +291,11 @@ def run_experiment(
         **attack_class[1],
     }
 
-    model_attack = model.wrapper_model if (not attack_name in ["moeva", "ucs", "bfs"]) else model
+    model_attack = (
+        model.wrapper_model
+        if (not attack_name in ["moeva", "ucs", "bfs"])
+        else model
+    )
 
     attack = attack_class[0](
         constraints=constraints,
@@ -271,7 +352,9 @@ def run_experiment(
         #     print(attack.attacks[0].__name__)
 
         auto_attack_metrics = attack
-        if isinstance(attack.attacks[0], ConstrainedAutoAttack3) or isinstance(attack.attacks[0], ConstrainedAutoAttack4):
+        if isinstance(attack.attacks[0], ConstrainedAutoAttack3) or isinstance(
+            attack.attacks[0], ConstrainedAutoAttack4
+        ):
             auto_attack_metrics = attack.attacks[0]._autoattack
             experiment.log_metric(
                 "attack_constraints_rate_steps_inner",
@@ -306,6 +389,10 @@ def run_experiment(
             ele = dataclasses.asdict(e)
             for key in ele:
                 experiment.log_metric(f"{i}_{key}", ele[key])
+
+        experiment.log_metric(
+            "constraints_success_rate", auto_attack_metrics.constraints_rate
+        )
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
@@ -575,7 +662,23 @@ def get_adv_path(
 
 
 def path_to_training(path):
-    training = ["ctgan_madry", "cutmix_madry", "goggle_madry", "wgan_madry", "tablegan_madry", "tvae_madry", "ctgan", "cutmix", "goggle", "wgan", "tablegan", "tvae" "default", "madry", "subset", "dist"]
+    training = [
+        "ctgan_madry",
+        "cutmix_madry",
+        "goggle_madry",
+        "wgan_madry",
+        "tablegan_madry",
+        "tvae_madry",
+        "ctgan",
+        "cutmix",
+        "goggle",
+        "wgan",
+        "tablegan",
+        "tvae" "default",
+        "madry",
+        "subset",
+        "dist",
+    ]
     for t in training:
         if t in path:
             return t
@@ -603,7 +706,7 @@ def run(
     steps: int = 10,
     load_adv: bool = False,
     save_adv: bool = False,
-    evaluate_constraints: bool = True
+    evaluate_constraints: bool = True,
 ):
     # Load data
 
@@ -631,7 +734,6 @@ def run(
 
     metric = create_metric("auc")
 
-    print(f"BUGGGGGGGGG {x_test.shape}")
     auc = compute_metric(
         model,
         metric,
@@ -658,12 +760,16 @@ def run(
                 PytorchBackend(),
                 feature_names=constraints.feature_names,
             )
-            constraints_val = constraints_executor.execute(torch.Tensor(x_test.values))
+            constraints_val = constraints_executor.execute(
+                torch.Tensor(x_test.values)
+            )
             constraints_ok = (constraints_val <= 1e-9).float().mean()
-            print(f"Constraints {i} ok: {constraints_ok * 100:.2f}%, {constraints_val.max()}")
+            print(
+                f"Constraints {i} ok: {constraints_ok * 100:.2f}%, {constraints_val.max()}"
+            )
             i_print = np.argmax(constraints_val.numpy())
             print(x_test["header_FileAlignment"].iloc[i_print])
-            
+
     assert constraints_ok > 0.9
 
     print("--------- End of verification ---------")
@@ -722,7 +828,7 @@ def run(
                     n_gen,
                     n_offsprings,
                     seed,
-                    evaluate_constraints
+                    evaluate_constraints,
                 ),
                 batch_size,
             )
@@ -790,7 +896,7 @@ def run(
                         n_gen,
                         n_offsprings,
                         seed,
-                        evaluate_constraints
+                        evaluate_constraints,
                     ),
                     last_adv,
                 )
@@ -847,7 +953,9 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=10)
     parser.add_argument("--save_adv", type=int, default=0)
     parser.add_argument("--load_adv", type=int, default=0)
-    parser.add_argument("--constraints_evaluation", action="store_true", default=True)
+    parser.add_argument(
+        "--constraints_evaluation", action="store_true", default=True
+    )
     parser.add_argument(
         "--no-constraints_evaluation",
         dest="constraints_evaluation",
@@ -878,5 +986,5 @@ if __name__ == "__main__":
         steps=args.steps,
         load_adv=args.load_adv != 0,
         save_adv=args.save_adv != 0,
-        evaluate_constraints=args.constraints_evaluation
+        evaluate_constraints=args.constraints_evaluation,
     )

@@ -11,6 +11,8 @@ from comet_ml import Experiment, OfflineExperiment
 import time
 import uuid
 
+import numpy as np
+
 
 class XP(object):
     def __init__(
@@ -142,6 +144,8 @@ class LocalXp:
         return self.experiment_name + "_"
 
     def log_metric(self, name, value, **kwargs):
+        if isinstance(value, np.ndarray):
+            value.tolist()
         self.log_metrics(**{name: value})
 
     def log_model(self, name, path):
@@ -159,11 +163,11 @@ class LocalXp:
                 {
                     "parameters": self.parameters,
                     "metrics": self.metrics,
-                }, 
-                f, 
-                indent=4
+                },
+                f,
+                indent=4,
             )
-            
+
     def end(self):
         self.save_json()
 
