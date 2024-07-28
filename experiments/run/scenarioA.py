@@ -356,11 +356,11 @@ def run_experiment(
             attack.attacks[0], ConstrainedAutoAttack4
         ):
             auto_attack_metrics = attack.attacks[0]._autoattack
-            experiment.log_metric(
-                "attack_constraints_rate_steps_inner",
-                auto_attack_metrics.constraints_rate,
-                step=batch_idx,
-            )
+            # experiment.log_metric(
+            #     "attack_constraints_rate_steps_inner",
+            #     auto_attack_metrics.constraints_rate,
+            #     step=batch_idx,
+            # )
 
         experiment.log_metric(
             "attack_duration_steps_sum",
@@ -377,11 +377,11 @@ def run_experiment(
             auto_attack_metrics.robust_accuracies,
             step=batch_idx,
         )
-        experiment.log_metric(
-            "attack_constraints_rate_steps",
-            attack.constraints_rate,
-            step=batch_idx,
-        )
+        # experiment.log_metric(
+        #     "attack_constraints_rate_steps",
+        #     attack.constraints_rate,
+        #     step=batch_idx,
+        # )
         experiment.log_metric(
             "attack_distance_ok_rate", attack.distance_ok, step=batch_idx
         )
@@ -390,8 +390,10 @@ def run_experiment(
             for key in ele:
                 experiment.log_metric(f"{i}_{key}", ele[key])
 
+        print("TYPE")
+        print(isinstance(auto_attack_metrics.constraints_rate[-1], np.ndarray))
         experiment.log_metric(
-            "constraints_success_rate", auto_attack_metrics.constraints_rate
+            "constraints_success_rate", auto_attack_metrics.constraints_rate[-1]
         )
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
