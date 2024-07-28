@@ -242,6 +242,7 @@ class Moeva2:
             if isinstance(self.model, VIME):
                 self.n_jobs = 8
 
+        self.n_jobs = 32
         
         print(f"N_JOBS MOEVA {self.n_jobs}")
 

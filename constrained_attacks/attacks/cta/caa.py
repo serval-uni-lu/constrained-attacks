@@ -155,7 +155,7 @@ class ConstrainedMultiAttack(MultiAttack):
 
             log_constraints = True
             if log_constraints:
-                numpy_adv_constraints = numpy_adv.reshape(-1, numpy_adv[:-1])
+                numpy_adv_constraints = numpy_adv.reshape(-1, numpy_adv.shape[-1])
 
                 executor = ConstraintsExecutor(
                     AndConstraint(

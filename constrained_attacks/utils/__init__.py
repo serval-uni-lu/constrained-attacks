@@ -102,9 +102,10 @@ def fix_immutable(
     if not torch.isclose(
         x_clean[:, :, immutable_indices], x_adv[:, :, immutable_indices]
     ).all():
-        warnings.warn("Mutable indices are not equal nor close.")
-        print("Mutable indices are not equal")
-        print("Fixing mutable indices")
+        pass
+        # warnings.warn("Mutable indices are not equal nor close.")
+        # print("Mutable indices are not equal")
+        # print("Fixing mutable indices")
 
     x_adv[:, :, immutable_indices] = x_clean[:, :, immutable_indices]
 

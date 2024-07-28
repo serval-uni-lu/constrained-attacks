@@ -145,7 +145,7 @@ class LocalXp:
 
     def log_metric(self, name, value, **kwargs):
         if isinstance(value, np.ndarray):
-            value.tolist()
+            value = value.tolist()
         self.log_metrics(**{name: value})
 
     def log_model(self, name, path):
