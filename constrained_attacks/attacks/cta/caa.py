@@ -39,6 +39,7 @@ class ConstrainedMultiAttack(MultiAttack):
         self.constraints_rate = []
         self.distance_ok = []
         self.mdc = []
+        self.stopwatch_data = []
 
     # Override from upper class
     # Moeva does not use the same model as other attacks
@@ -169,6 +170,10 @@ class ConstrainedMultiAttack(MultiAttack):
                 self.constraints_rate.append(
                     (constraints_and <= 0).astype(int).mean(0)
                 )
+                if attack.stopwatch is not None:
+                    self.stopwatch_data.append(attack.stopwatch.get_all_total())
+                if attack.stopwatch_data is not None:
+                    self.stopwatch_data.append(attack.stopwatch_data)
 
             print("Over")
 

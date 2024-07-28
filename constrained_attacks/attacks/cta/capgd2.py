@@ -1,4 +1,5 @@
 import time
+from constrained_attacks.utils.stopwatch import Timer
 from typing import Optional
 
 import numpy as np
@@ -21,6 +22,8 @@ from constrained_attacks.utils import (
     fix_types,
 )
 from mlc.utils import to_numpy_number
+
+from constrained_attacks.utils.stopwatch import StopWatch
 
 
 class CAPGD2(Attack):
@@ -102,14 +105,14 @@ class CAPGD2(Attack):
         self.objective_calculator: Optional[ObjectiveCalculator] = None
         self.constraints_executor: Optional[ConstraintsExecutor] = None
         self.objective_calculator = ObjectiveCalculator(
-                model_objective,
-                constraints=self.constraints,
-                thresholds={"distance": eps},
-                norm=norm,
-                fun_distance_preprocess=self.scaler.transform,
-            )
+            model_objective,
+            constraints=self.constraints,
+            thresholds={"distance": eps},
+            norm=norm,
+            fun_distance_preprocess=self.scaler.transform,
+        )
         if self.constraints.relation_constraints is not None:
-            
+
             self.constraints_executor = ConstraintsExecutor(
                 AndConstraint(self.constraints.relation_constraints),
                 PytorchBackend(),
@@ -120,6 +123,8 @@ class CAPGD2(Attack):
             torch.tensor(self.constraints.mutable_features, dtype=torch.float)
         ).to(self.device)
 
+        self.stopwatch = StopWatch()
+
     def forward(
         self, images: torch.Tensor, labels: torch.Tensor
     ) -> torch.Tensor:
@@ -127,24 +132,25 @@ class CAPGD2(Attack):
         Overridden.
         """
         # self._check_inputs(images)
+        with Timer(self.stopwatch, "total"):
 
-        x = images
-        x_in = images.clone()
-        x = self.scaler.transform(x)
+            x = images
+            x_in = images.clone()
+            x = self.scaler.transform(x)
 
-        x = x.clone().detach().to(self.device)
-        labels = labels.clone().detach().to(self.device)
+            x = x.clone().detach().to(self.device)
+            labels = labels.clone().detach().to(self.device)
 
-        _, adv = self.perturb(x, labels, x_in,cheap=True)
+            _, adv = self.perturb(x, labels, x_in, cheap=True)
 
-        x = self.scaler.inverse_transform(x)
-        adv = self.scaler.inverse_transform(adv)
+            x = self.scaler.inverse_transform(x)
+            adv = self.scaler.inverse_transform(adv)
 
-        adv = fix_types(x_in, adv, self.constraints.feature_types)
-        adv = fix_immutable(x_in, adv, self.constraints.mutable_features)
+            adv = fix_types(x_in, adv, self.constraints.feature_types)
+            adv = fix_immutable(x_in, adv, self.constraints.mutable_features)
 
-        if self.fix_equality_constraints_end:
-            adv = fix_equality_constraints(self.constraints, adv)
+            if self.fix_equality_constraints_end:
+                adv = fix_equality_constraints(self.constraints, adv)
 
         return adv
 
@@ -191,7 +197,7 @@ class CAPGD2(Attack):
         random_start = random_start or (not self.init_start)
         random_start = random_start and (self.random_start)
 
-        if (random_start):
+        if random_start:
             print("Random")
             if self.norm == "Linf":
                 t = 2 * torch.rand(x.shape).to(self.device).detach() - 1
@@ -269,23 +275,28 @@ class CAPGD2(Attack):
         grad = torch.zeros_like(x)
         for _ in range(self.eot_iter):
             with torch.enable_grad():
-                logits = self.get_logits(
-                    x_adv
-                )  # 1 forward pass (eot_iter = 1)
-                loss_indiv = criterion_indiv(logits, y)
-                if self.constraints.relation_constraints is not None:
-                    loss_indiv = (
-                        loss_indiv
-                        - self.constraints_executor.execute(
-                            self.scaler.inverse_transform(x_adv)
+
+                with Timer(self.stopwatch, "adv_loss"):
+                    logits = self.get_logits(
+                        x_adv
+                    )  # 1 forward pass (eot_iter = 1)
+                    loss_indiv = criterion_indiv(logits, y)
+                with Timer(self.stopwatch, "constraints_loss"):
+                    if self.constraints.relation_constraints is not None:
+                        loss_indiv = (
+                            loss_indiv
+                            - self.constraints_executor.execute(
+                                self.scaler.inverse_transform(x_adv)
+                            )
                         )
-                    )
+                with Timer(self.stopwatch, "backpropagation"):
+                    loss = loss_indiv.sum()
 
-                loss = loss_indiv.sum()
+            with Timer(self.stopwatch, "backpropagation"):
+                grad += torch.autograd.grad(loss, [x_adv])[
+                    0
+                ].detach()  # 1 backward pass (eot_iter = 1)
 
-            grad += torch.autograd.grad(loss, [x_adv])[
-                0
-            ].detach()  # 1 backward pass (eot_iter = 1)
 
         grad /= float(self.eot_iter)
         grad_best = grad.clone()
@@ -429,34 +440,38 @@ class CAPGD2(Attack):
                 x_adv = x_adv_1 + 0.0
 
             if self.fix_equality_constraints_iter:
-                print(f"fixing equality constraints {x_best_adv.shape}")
-                x_adv = self.scaler.transform(
-                    fix_equality_constraints(
-                        self.constraints,
-                        self.scaler.inverse_transform(x_adv),
+                with Timer(self.stopwatch, "fix_constraints"):
+                    print(f"fixing equality constraints {x_best_adv.shape}")
+                    x_adv = self.scaler.transform(
+                        fix_equality_constraints(
+                            self.constraints,
+                            self.scaler.inverse_transform(x_adv),
+                        )
                     )
-                )
             # -- get gradient
             x_adv.requires_grad_()
             grad = torch.zeros_like(x)
             for _ in range(self.eot_iter):
                 with torch.enable_grad():
-                    logits = self.get_logits(
-                        x_adv
-                    )  # 1 forward pass (eot_iter = 1)
-                    loss_indiv = criterion_indiv(logits, y)
-                    if self.constraints.relation_constraints is not None:
-                        loss_indiv = (
-                            loss_indiv
-                            - self.constraints_executor.execute(
-                                self.scaler.inverse_transform(x_adv)
+                    with Timer(self.stopwatch, "adv_loss"):
+                        logits = self.get_logits(
+                            x_adv
+                        )  # 1 forward pass (eot_iter = 1)
+                        loss_indiv = criterion_indiv(logits, y)
+                    with Timer(self.stopwatch, "constraints_loss"):
+                        if self.constraints.relation_constraints is not None:
+                            loss_indiv = (
+                                loss_indiv
+                                - self.constraints_executor.execute(
+                                    self.scaler.inverse_transform(x_adv)
+                                )
                             )
-                        )
-                    loss = loss_indiv.sum()
-
-                grad += torch.autograd.grad(loss, [x_adv])[
-                    0
-                ].detach()  # 1 backward pass (eot_iter = 1)
+                    with Timer(self.stopwatch, "backpropagation"):
+                     loss = loss_indiv.sum()
+                with Timer(self.stopwatch, "backpropagation"):
+                    grad += torch.autograd.grad(loss, [x_adv])[
+                        0
+                    ].detach()  # 1 backward pass (eot_iter = 1)
 
             grad /= float(self.eot_iter)
 
@@ -467,13 +482,12 @@ class CAPGD2(Attack):
                 x_adv[(pred == 0).nonzero().squeeze()] + 0.0
             )
 
-            
-                # x_best_adv = self.scaler.transform(
-                #     fix_equality_constraints(
-                #         self.constraints,
-                #         self.scaler.inverse_transform(x_best_adv),
-                #     )
-                # )
+            # x_best_adv = self.scaler.transform(
+            #     fix_equality_constraints(
+            #         self.constraints,
+            #         self.scaler.inverse_transform(x_best_adv),
+            #     )
+            # )
             if self.verbose:
                 print(
                     "iteration: {} - Best loss: {:.6f}".format(
@@ -516,7 +530,9 @@ class CAPGD2(Attack):
                         fl_oscillation = np.where(fl_oscillation)
 
                         if self.best_restart:
-                            x_adv[fl_oscillation] = x_best[fl_oscillation].clone()
+                            x_adv[fl_oscillation] = x_best[
+                                fl_oscillation
+                            ].clone()
                             grad[fl_oscillation] = grad_best[
                                 fl_oscillation
                             ].clone()
@@ -532,7 +548,14 @@ class CAPGD2(Attack):
             inputs = self.scaler.inverse_transform(inputs)
         return super().get_logits(inputs, labels, *args, **kwargs)
 
-    def perturb(self, x_in, y_in, x_in_unscaled, best_loss=False, cheap=True, ):
+    def perturb(
+        self,
+        x_in,
+        y_in,
+        x_in_unscaled,
+        best_loss=False,
+        cheap=True,
+    ):
         assert self.norm in ["Linf", "L2"]
         x = x_in.clone() if len(x_in.shape) == 2 else x_in.clone().unsqueeze(0)
         y = y_in.clone() if len(y_in.shape) == 1 else y_in.clone().unsqueeze(0)
@@ -578,9 +601,7 @@ class CAPGD2(Attack):
                     if counter == 0:
                         ind_to_fool = np.arange(len(x))
                     ind_to_fool = (
-                        torch.from_numpy(ind_to_fool)
-                        .to(self.device)
-                        .long()
+                        torch.from_numpy(ind_to_fool).to(self.device).long()
                     )
                     if len(ind_to_fool.shape) == 0:
                         ind_to_fool = ind_to_fool.unsqueeze(0)
@@ -595,7 +616,9 @@ class CAPGD2(Attack):
                             acc_curr,
                             loss_curr,
                             adv_curr,
-                        ) = self.attack_single_run(x_to_fool, y_to_fool, counter)
+                        ) = self.attack_single_run(
+                            x_to_fool, y_to_fool, counter
+                        )
                         ind_curr = (acc_curr == 0).nonzero().squeeze()
                         #
                         acc[ind_to_fool[ind_curr]] = 0
@@ -603,12 +626,22 @@ class CAPGD2(Attack):
                         adv[ind_to_fool] = adv_curr.clone()
                         adv1 = adv_curr.clone()
                         adv1 = self.scaler.inverse_transform(adv_curr)
-                        adv1 = fix_types(x_in_unscaled[ind_to_fool], adv1, self.constraints.feature_types)
-                        adv1 = fix_immutable(x_in_unscaled[ind_to_fool], adv1, self.constraints.mutable_features)
+                        adv1 = fix_types(
+                            x_in_unscaled[ind_to_fool],
+                            adv1,
+                            self.constraints.feature_types,
+                        )
+                        adv1 = fix_immutable(
+                            x_in_unscaled[ind_to_fool],
+                            adv1,
+                            self.constraints.mutable_features,
+                        )
 
                         adv1 = fix_equality_constraints(self.constraints, adv1)
                         adv1 = to_numpy_number(adv1)[:, np.newaxis, :]
-                        x_clean1 = to_numpy_number(x_in_unscaled[ind_to_fool]).astype(np.float32)
+                        x_clean1 = to_numpy_number(
+                            x_in_unscaled[ind_to_fool]
+                        ).astype(np.float32)
                         (
                             success_attack_indices,
                             success_adversarials_indices,
@@ -616,8 +649,14 @@ class CAPGD2(Attack):
                             x_clean1, y[ind_to_fool].cpu(), adv1, max_inputs=1
                         )
                         print(f"IDX: Success {len(success_attack_indices)}")
-                        adv[ind_to_fool[success_attack_indices]] = self.scaler.transform(torch.tensor(adv1[:, 0, :]))[success_attack_indices]
-                        ind_to_fool = np.setdiff1d(ind_to_fool, ind_to_fool[success_attack_indices])
+                        adv[ind_to_fool[success_attack_indices]] = (
+                            self.scaler.transform(torch.tensor(adv1[:, 0, :]))[
+                                success_attack_indices
+                            ]
+                        )
+                        ind_to_fool = np.setdiff1d(
+                            ind_to_fool, ind_to_fool[success_attack_indices]
+                        )
                         if self.verbose:
                             print(
                                 "restart {} - robust accuracy: {:.2%} - cum. time: {:.1f} s".format(
