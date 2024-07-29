@@ -13,7 +13,7 @@ sys.path.append("../ml-commons")
 import copy
 import time
 from argparse import ArgumentParser
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from dataclasses import dataclass, fields
 import dataclasses
 import numpy as np
@@ -713,10 +713,12 @@ def run(
     load_adv: bool = False,
     save_adv: bool = False,
     evaluate_constraints: bool = True,
+    constraints_group: Optional[str] = None,
 ):
     # Load data
 
     dataset = load_dataset(dataset_name)
+    dataset.set_constraints_group(constraints_group)
     x, y = dataset.get_x_y()
     splits = dataset.get_splits()
     x_test = x.iloc[splits["test"]]
@@ -985,6 +987,7 @@ if __name__ == "__main__":
         dest="constraints_evaluation",
         action="store_false",
     )
+    parser.add_argument("--constraints_group", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -1011,4 +1014,5 @@ if __name__ == "__main__":
         load_adv=args.load_adv != 0,
         save_adv=args.save_adv != 0,
         evaluate_constraints=args.constraints_evaluation,
+        constraints_group=args.constraints_group,
     )
