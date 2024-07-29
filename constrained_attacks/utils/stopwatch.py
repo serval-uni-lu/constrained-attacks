@@ -29,7 +29,7 @@ class StopWatch:
         if name not in self.started_time:
             raise StopWatchNotStarted()
 
-        time_elapsed = stop_time - self.started_time.pop("name")
+        time_elapsed = stop_time - self.started_time.pop(name)
 
         if not name in self.total:
             self.total[name] = 0

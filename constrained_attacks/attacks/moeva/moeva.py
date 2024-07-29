@@ -85,7 +85,7 @@ class Moeva2:
         self.seed = seed
         self.n_jobs = n_jobs
         self.verbose = verbose
-        self.stop_watch_data = None
+        self.stopwatch_data = None
 
         # Defaults
         self.alg_class = RNSGA3
@@ -303,20 +303,19 @@ class Moeva2:
                 for i, batch_indexes in iterable
             )
 
-        out = itertools.chain.from_iterable(out)
-
-        self.stop_watch_data = merge_stopwatch_dict([e.stopwatch for e in out])
+        out = list(itertools.chain.from_iterable(out))
+        self.stopwatch_data = merge_stopwatch_dict([e.stopwatch for e in out])
 
         print("Done with moeva")
         if self.save_history is not None:
-            out = zip(*out)
-            out = [np.concatenate(out_0) for out_0 in out]
+            # out = zip(*out)
+            # out = [np.concatenate(out_0) for out_0 in out]
 
-            x_adv = np.concatenate([e.adv for e in out])
+            x_adv = np.array([e.adv for e in out])
             histories = np.concatenate([e.history for e in out])
             return x_adv, histories
         else:
-            return np.concatenate([e.adv for e in out])
+            return np.array([e.adv for e in out])
 
     def __call__(
         self, x: np.ndarray, y, batch_size=None, *args, **kwargs

@@ -170,9 +170,9 @@ class ConstrainedMultiAttack(MultiAttack):
                 self.constraints_rate.append(
                     (constraints_and <= 0).astype(int).mean(0)
                 )
-                if attack.stopwatch is not None:
+                if hasattr(attack, "stopwatch"):
                     self.stopwatch_data.append(attack.stopwatch.get_all_total())
-                if attack.stopwatch_data is not None:
+                if hasattr(attack, "stopwatch_data"):
                     self.stopwatch_data.append(attack.stopwatch_data)
 
             print("Over")

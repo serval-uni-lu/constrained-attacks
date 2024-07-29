@@ -397,9 +397,8 @@ def run_experiment(
         )
 
         for i, e in enumerate(auto_attack_metrics.stopwatch_data):
-            ele = dataclasses.asdict(e)
-            for key in ele:
-                experiment.log_metric(f"time_{i}_{key}", ele[key])
+            for key in e:
+                experiment.log_metric(f"time_{i}_{key}", e[key])
 
         filter_x, filter_y, filter_adv = batch[0], batch[1], adv_x
 
